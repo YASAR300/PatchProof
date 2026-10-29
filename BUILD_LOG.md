@@ -87,5 +87,61 @@
 
 ### Known limitations
 - Authentication and backend verification runners are not yet wired up (scheduled for subsequent steps).
-- Landing page on `/` is a minimal placeholder until step 2.
 - The `/dev/ui` route is restricted to non-production environments.
+
+---
+
+## Step 2: Landing Page Part 1 (2026-10-29)
+
+### Decisions and assumptions
+- Light theme is strictly enforced on `/` via container attribute `data-theme="light"` and programmatic synchronization, while embedded dashboard mockups leverage scoped `data-theme="dark"` for authentic Linear-style visuals.
+- Nav links `#product`, `#evidence`, `#security`, and `#pricing` fail silently when clicked until their respective target sections are added in Step 3.
+- All product visuals are composed purely from JSX, CSS, and SVG without any external image dependencies.
+- All animations use `framer-motion` and strictly respect `prefers-reduced-motion`.
+
+### What was built
+- **Navbar** (`src/components/landing/Navbar.jsx`):
+  - Sticky glass effect with backdrop blur.
+  - 1px bottom border appearing dynamically upon scroll.
+  - PatchProof wordmark with custom shield-check SVG logo.
+  - Smooth-scroll anchor links (failing silently for future sections).
+  - 'Sign in' (`/login`) and 'Get started' (`/signup`) action buttons.
+  - Mobile responsive drawer/sheet with animated open/close transition.
+- **Hero** (`src/components/landing/Hero.jsx`):
+  - Small pill tag: "Evidence-first security verification".
+  - Large headline with clamp typography and soft gradient on "Prove they're fixed."
+  - Two-line subheadline and primary/secondary CTAs ("Start verifying" and "See how it works").
+  - Realistic dark Linear-style dashboard mockup inside a window frame:
+    - Sidebar with workspace navigation.
+    - Findings list with severity and status badges.
+    - Selected finding panel featuring automated reproduction test logs and verification matrix.
+    - Perspective tilt flattening smoothly on scroll.
+    - Two floating chips drifting subtly: "REPRODUCED on a1b2c3d" and "FIX_VERIFIED for tested cases".
+- **Open Tooling Strip** (`src/components/landing/OpenToolingStrip.jsx`):
+  - Clean text-only display of Semgrep, OSV, GitHub, and Git without logos or partnership claims.
+- **Problem Section** (`src/components/landing/ProblemSection.jsx`):
+  - Bold headline: "Alerts are not evidence."
+  - Three scroll-revealed statements addressing scanner false positives, unproven fixes, and silent security regressions.
+- **Four-Act Sticky Storytelling Section** (`src/components/landing/WorkflowSection.jsx`, `id="workflow"`):
+  - Four distinct verification acts: Find, Prove, Fix, Evidence.
+  - Left column: large interactive text acts highlighting as the user scrolls or clicks.
+  - Right column: sticky panel dynamically swapping content per act (code finding, container reproduction log, before/after validation matrix, cryptographic evidence report).
+- **Landing Page Composition** (`src/app/page.jsx`):
+  - Assembled all 5 components in order.
+  - Enforced light theme throughout the route.
+
+### Files added / modified
+- `src/app/globals.css` (modified to support scoped `[data-theme="light"]` and `[data-theme="dark"]`)
+- `src/components/landing/Navbar.jsx` (added)
+- `src/components/landing/Hero.jsx` (added)
+- `src/components/landing/OpenToolingStrip.jsx` (added)
+- `src/components/landing/ProblemSection.jsx` (added)
+- `src/components/landing/WorkflowSection.jsx` (added)
+- `src/components/landing/index.js` (modified)
+- `src/app/page.jsx` (modified)
+- `BUILD_LOG.md` (modified)
+
+### Known limitations
+- Authentication routes (`/login`, `/signup`) arrive in step 5.
+- Second half of the landing page (Product, Evidence, Security, Pricing, Footer) arrives in step 3.
+

@@ -1,2 +1,5 @@
-// Landing page components (Apple-inspired: hero, device frames, marketing primitives)
-// Implemented in step 2.
+export { Navbar } from "./Navbar";
+export { Hero } from "./Hero";
+export { OpenToolingStrip } from "./OpenToolingStrip";
+export { ProblemSection } from "./ProblemSection";
+export { WorkflowSection } from "./WorkflowSection";
