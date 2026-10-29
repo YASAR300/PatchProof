@@ -1,0 +1,165 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+html[data-theme="light"] {
+  --background: #ffffff;
+  --surface: #ffffff;
+  --surface-raised: #f5f5f7;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --text: #1d1d1f;
+  --text-muted: #86868b;
+  --accent: #0071e3;
+  --accent-hover: #0077ed;
+  --accent-foreground: #ffffff;
+  --danger: #e11d48;
+  --danger-hover: #be123c;
+  --danger-foreground: #ffffff;
+
+  /* Semantic status colors */
+  --semantic-red: #ef4444;
+  --semantic-red-bg: #fef2f2;
+  --semantic-red-border: #fecaca;
+
+  --semantic-green: #10b981;
+  --semantic-green-bg: #ecfdf5;
+  --semantic-green-border: #a7f3d0;
+
+  --semantic-amber: #f59e0b;
+  --semantic-amber-bg: #fffbeb;
+  --semantic-amber-border: #fde68a;
+
+  --semantic-orange: #f97316;
+  --semantic-orange-bg: #fff7ed;
+  --semantic-orange-border: #fed7aa;
+
+  --semantic-gray: #6b7280;
+  --semantic-gray-bg: #f3f4f6;
+  --semantic-gray-border: #e5e7eb;
+
+  --semantic-neutral: #64748b;
+  --semantic-neutral-bg: #f8fafc;
+  --semantic-neutral-border: #e2e8f0;
+
+  /* Severities */
+  --severity-critical: #e11d48;
+  --severity-critical-bg: #ffe4e6;
+  --severity-critical-border: #fecdd3;
+
+  --severity-high: #ea580c;
+  --severity-high-bg: #ffedd5;
+  --severity-high-border: #fed7aa;
+
+  --severity-medium: #d97706;
+  --severity-medium-bg: #fef3c7;
+  --severity-medium-border: #fde68a;
+
+  --severity-low: #2563eb;
+  --severity-low-bg: #eff6ff;
+  --severity-low-border: #bfdbfe;
+
+  --severity-info: #0284c7;
+  --severity-info-bg: #f0f9ff;
+  --severity-info-border: #bae6fd;
+
+  --font-inter: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+html[data-theme="dark"] {
+  --background: #090a0f;
+  --surface: #11131a;
+  --surface-raised: #181b24;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #f4f4f6;
+  --text-muted: #8c919e;
+  --accent: #5e6ad2;
+  --accent-hover: #6d78e3;
+  --accent-foreground: #ffffff;
+  --danger: #f43f5e;
+  --danger-hover: #e11d48;
+  --danger-foreground: #ffffff;
+
+  /* Semantic status colors (Linear dark palette) */
+  --semantic-red: #f87171;
+  --semantic-red-bg: rgba(239, 68, 68, 0.12);
+  --semantic-red-border: rgba(239, 68, 68, 0.28);
+
+  --semantic-green: #34d399;
+  --semantic-green-bg: rgba(16, 185, 129, 0.12);
+  --semantic-green-border: rgba(16, 185, 129, 0.28);
+
+  --semantic-amber: #fbbf24;
+  --semantic-amber-bg: rgba(245, 158, 11, 0.12);
+  --semantic-amber-border: rgba(245, 158, 11, 0.28);
+
+  --semantic-orange: #fb923c;
+  --semantic-orange-bg: rgba(249, 115, 22, 0.12);
+  --semantic-orange-border: rgba(249, 115, 22, 0.28);
+
+  --semantic-gray: #9ca3af;
+  --semantic-gray-bg: rgba(107, 114, 128, 0.14);
+  --semantic-gray-border: rgba(107, 114, 128, 0.28);
+
+  --semantic-neutral: #94a3b8;
+  --semantic-neutral-bg: rgba(148, 163, 184, 0.12);
+  --semantic-neutral-border: rgba(148, 163, 184, 0.25);
+
+  /* Severities */
+  --severity-critical: #fb7185;
+  --severity-critical-bg: rgba(244, 63, 94, 0.15);
+  --severity-critical-border: rgba(244, 63, 94, 0.35);
+
+  --severity-high: #fb923c;
+  --severity-high-bg: rgba(249, 115, 22, 0.15);
+  --severity-high-border: rgba(249, 115, 22, 0.35);
+
+  --severity-medium: #fbbf24;
+  --severity-medium-bg: rgba(245, 158, 11, 0.15);
+  --severity-medium-border: rgba(245, 158, 11, 0.35);
+
+  --severity-low: #60a5fa;
+  --severity-low-bg: rgba(59, 130, 246, 0.15);
+  --severity-low-border: rgba(59, 130, 246, 0.35);
+
+  --severity-info: #38bdf8;
+  --severity-info-bg: rgba(14, 165, 233, 0.15);
+  --severity-info-border: rgba(14, 165, 233, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text);
+  font-family: var(--font-inter);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
