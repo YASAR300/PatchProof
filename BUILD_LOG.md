@@ -245,7 +245,78 @@
 
 ### Known limitations
 - Local database requires a running PostgreSQL instance or Docker container; when not running, `/api/health` gracefully reports `db: "down"`.
-- Authentication routes (`/login`, `/signup`) arrive in step 5.
+
+---
+
+## Step 5: Authentication & Dashboard Shell (2026-10-29)
+
+### Decisions and assumptions
+- Configured Auth.js (NextAuth v5 beta) with JWT session strategy and dual configuration (`auth.config.js` for edge-compatible middleware and `auth.js` for full Node execution with Prisma and bcryptjs).
+- Protected all `/app/*` routes via Next.js middleware, redirecting unauthenticated visitors to `/login?next=<path>` and redirecting authenticated visitors away from `/login` and `/signup` directly to `/app`.
+- Created server helpers `requireUser()` and `getSessionUser()`.
+- Wrote immutable audit log records for `USER_SIGNED_UP` and `USER_SIGNED_IN` with non-blocking error handling to safeguard auth flow availability.
+- Centered Apple-style light cards for `/login` and `/signup` with client/server Zod validation and a minimum 10-character password requirement.
+- Conditionally render "Continue with GitHub" only when both `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are set.
+- App shell in `src/app/app/layout.jsx` defaults to dark theme, persisted via localStorage and cookie (`patchproof_theme`) to prevent theme flash.
+- 240px wide sidebar collapsible to 56px icon rail (remembered in localStorage) and mobile off-canvas drawer.
+- Built Command Palette (`Cmd+K` / `Ctrl+K`), two-step `G` keyboard navigation shortcuts, and a `?` shortcut cheat-sheet dialog.
+- Built all 9 app routes with `PageHeader` and descriptive `EmptyState` primitives.
+
+### What was built
+- `src/auth.config.js`: Lightweight edge-compatible configuration for route authorization and JWT callbacks.
+- `src/auth.js`: Full Auth.js initialization with Credentials (bcryptjs) & GitHub providers, audit logging, and `requireUser()` / `getSessionUser()` helpers.
+- `src/middleware.js`: Edge middleware protecting `/app/*` routes and redirecting auth traffic.
+- `src/app/api/auth/[...nextauth]/route.js`: NextAuth API handler.
+- `src/app/api/auth/signup/route.js`: User registration endpoint with Zod validation, bcrypt password hashing, duplicate check, and `USER_SIGNED_UP` audit logging.
+- `src/app/login/page.jsx` & `src/app/login/LoginForm.jsx`: Centered Apple-style login card with inline validation and dynamic GitHub OAuth.
+- `src/app/signup/page.jsx` & `src/app/signup/SignupForm.jsx`: Centered Apple-style signup card with 10-char password requirement and auto sign-in.
+- `src/components/app/AppShell.jsx`: Responsive Linear-style dashboard layout with collapsible sidebar, project switcher, topbar breadcrumbs, and user dropdown.
+- `src/components/app/CommandPalette.jsx`: Fuzzy command search modal supporting keyboard navigation (`↑`, `↓`, `↵`, `Esc`).
+- `src/components/app/ShortcutManager.jsx`: Global listener for `G`-sequence navigation shortcuts and `?` cheat-sheet dialog.
+- `src/components/app/PageHeader.jsx`: Reusable header primitive with title, description, and action slots.
+- 9 App Route Pages with `PageHeader` & `EmptyState`:
+  - `/app` (Overview)
+  - `/app/repositories` (Repositories)
+  - `/app/findings` (Findings)
+  - `/app/runs` (Verification Runs)
+  - `/app/reports` (Patch Reports)
+  - `/app/dependencies` (Dependencies)
+  - `/app/assistant` (AI Assistant)
+  - `/app/audit` (History & Audit)
+  - `/app/settings` (Settings)
+
+### Files added / modified
+- `src/auth.config.js` (added)
+- `src/auth.js` (added)
+- `src/middleware.js` (added)
+- `src/app/api/auth/[...nextauth]/route.js` (added)
+- `src/app/api/auth/signup/route.js` (added)
+- `src/app/login/page.jsx` (added)
+- `src/app/login/LoginForm.jsx` (added)
+- `src/app/signup/page.jsx` (added)
+- `src/app/signup/SignupForm.jsx` (added)
+- `src/components/app/AppShell.jsx` (added)
+- `src/components/app/CommandPalette.jsx` (added)
+- `src/components/app/ShortcutManager.jsx` (added)
+- `src/components/app/PageHeader.jsx` (added)
+- `src/components/app/index.js` (modified)
+- `src/app/app/layout.jsx` (added)
+- `src/app/app/page.jsx` (added)
+- `src/app/app/repositories/page.jsx` (added)
+- `src/app/app/findings/page.jsx` (added)
+- `src/app/app/runs/page.jsx` (added)
+- `src/app/app/reports/page.jsx` (added)
+- `src/app/app/dependencies/page.jsx` (added)
+- `src/app/app/assistant/page.jsx` (added)
+- `src/app/app/audit/page.jsx` (added)
+- `src/app/app/settings/page.jsx` (added)
+- `.env.example` (modified)
+- `BUILD_LOG.md` (modified)
+
+### Known limitations
+- Git repository cloning, scanner invocations, and test harness runner processes arrive in subsequent steps.
+- OAuth GitHub provider requires registering GitHub OAuth app credentials in `.env` to be active.
+
 
 
 
