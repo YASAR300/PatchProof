@@ -1,0 +1,391 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// -------------------------------------------------------------
+// ENUMS
+// -------------------------------------------------------------
+
+enum GlobalRole {
+  USER
+  ADMIN
+}
+
+enum ProjectRole {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
+enum FindingSource {
+  SCANNER
+  IMPORT
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  REPRODUCED
+  NOT_REPRODUCED
+  INCONCLUSIVE
+  EXECUTION_ERROR
+}
+
+enum TriageStatus {
+  OPEN
+  FIXED
+  IGNORED
+}
+
+enum ArtifactKind {
+  LOG
+  DIFF
+  TEST_RESULT
+  REPORT
+}
+
+enum PatchVerdict {
+  FIX_VERIFIED
+  PATCH_NOT_VERIFIED
+  REGRESSION_FAILURE
+  INCONCLUSIVE
+  EXECUTION_ERROR
+}
+
+enum ReviewDecision {
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+// -------------------------------------------------------------
+// MODELS
+// -------------------------------------------------------------
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  name         String?
+  passwordHash String?
+  githubId     String?     @unique
+  avatarUrl    String?
+  role         GlobalRole  @default(USER)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  projectsOwned Project[]        @relation("ProjectOwner")
+  memberships   ProjectMember[]
+  reviews       ReviewerDecision[]
+  jobs          Job[]
+  auditEvents   AuditEvent[]
+
+  @@index([email])
+}
+
+model Project {
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  repoUrl            String
+  repoOwner          String
+  repoName           String
+  defaultBranch      String    @default("main")
+  language           String?
+  isDemo             Boolean   @default(false)
+  executionEnabled   Boolean   @default(false)
+  lastScannedCommit  String?
+  ownerId            String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  owner              User              @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members            ProjectMember[]
+  scans              RepositoryScan[]
+  findings           Finding[]
+  verificationRuns   VerificationRun[]
+  patchReports       PatchReport[]
+  dependencies       Dependency[]
+  jobs               Job[]
+  auditEvents        AuditEvent[]
+
+  @@index([ownerId])
+  @@index([slug])
+}
+
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  userId    String
+  role      ProjectRole @default(MEMBER)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId])
+}
+
+model RepositoryScan {
+  id           String    @id @default(cuid())
+  projectId    String
+  commitSha    String
+  branch       String
+  tool         String
+  status       String
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  findingCount Int       @default(0)
+  jobId        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job          Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  findings     Finding[]
+
+  @@index([projectId, commitSha])
+  @@index([jobId])
+}
+
+model Finding {
+  id                String             @id @default(cuid())
+  projectId         String
+  scanId            String?
+  source            FindingSource      @default(SCANNER)
+  tool              String
+  ruleId            String
+  title             String
+  description       String?            @db.Text
+  severity          Severity
+  filePath          String
+  lineStart         Int?
+  lineEnd           Int?
+  snippet           String?            @db.Text
+  commitSha         String
+  fingerprint       String
+  cwe               String?
+  verificationState VerificationStatus @default(UNVERIFIED)
+  triageStatus      TriageStatus       @default(OPEN)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scan              RepositoryScan?    @relation(fields: [scanId], references: [id], onDelete: SetNull)
+  verificationRuns  VerificationRun[]
+  patchReports      PatchReport[]
+
+  @@unique([projectId, fingerprint])
+  @@index([projectId, severity])
+  @@index([projectId, verificationState])
+  @@index([scanId])
+}
+
+model VerificationRun {
+  id            String             @id @default(cuid())
+  findingId     String
+  projectId     String
+  commitSha     String
+  reproducerId  String?
+  testVersion   String?
+  status        VerificationStatus
+  startedAt     DateTime           @default(now())
+  finishedAt    DateTime?
+  durationMs    Int?
+  exitCode      Int?
+  assertions    Json?
+  environment   Json?
+  summary       String?            @db.Text
+  jobId         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  finding       Finding            @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  project       Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job           Job?               @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  artifacts     EvidenceArtifact[]
+
+  baselinePatchReports  PatchReport[] @relation("BaselineRun")
+  candidatePatchReports PatchReport[] @relation("CandidateRun")
+
+  @@index([findingId])
+  @@index([projectId, commitSha])
+  @@index([status])
+  @@index([jobId])
+}
+
+model EvidenceArtifact {
+  id            String          @id @default(cuid())
+  runId         String?
+  patchReportId String?
+  kind          ArtifactKind
+  name          String
+  content       String          @db.Text
+  sizeBytes     Int
+  sha256        String
+  createdAt     DateTime        @default(now())
+
+  verificationRun VerificationRun? @relation(fields: [runId], references: [id], onDelete: Cascade)
+  patchReport     PatchReport?     @relation(fields: [patchReportId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([patchReportId])
+  @@index([sha256])
+}
+
+model PatchReport {
+  id                String          @id @default(cuid())
+  findingId         String
+  projectId         String
+  baselineCommit    String
+  candidateCommit   String
+  baselineRunId     String?
+  candidateRunId    String?
+  regressionResults Json?
+  verdict           PatchVerdict
+  summary           String?         @db.Text
+  diffStat          Json?
+  jobId             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  finding           Finding          @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  baselineRun       VerificationRun? @relation("BaselineRun", fields: [baselineRunId], references: [id], onDelete: SetNull)
+  candidateRun      VerificationRun? @relation("CandidateRun", fields: [candidateRunId], references: [id], onDelete: SetNull)
+  job               Job?             @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  artifacts         EvidenceArtifact[]
+  decisions         ReviewerDecision[]
+
+  @@index([findingId])
+  @@index([projectId])
+  @@index([verdict])
+}
+
+model ReviewerDecision {
+  id            String         @id @default(cuid())
+  patchReportId String
+  reviewerId    String
+  decision      ReviewDecision
+  comment       String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  patchReport   PatchReport    @relation(fields: [patchReportId], references: [id], onDelete: Cascade)
+  reviewer      User           @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([patchReportId])
+  @@index([reviewerId])
+}
+
+model Dependency {
+  id               String    @id @default(cuid())
+  projectId        String
+  ecosystem        String
+  name             String
+  installedVersion String
+  isDirect         Boolean   @default(true)
+  dependencyPath   Json?
+  lockfile         String?
+  advisoryId       String?
+  advisoryUrl      String?
+  advisorySummary  String?   @db.Text
+  severity         Severity?
+  affectedRange    String?
+  fixedVersion     String?
+  scannedAt        DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, ecosystem, name])
+  @@index([advisoryId])
+}
+
+model AiExplanation {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  provider   String
+  model      String
+  inputHash  String
+  content    Json
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([inputHash])
+}
+
+model Job {
+  id          String     @id @default(cuid())
+  type        String
+  status      JobStatus  @default(QUEUED)
+  projectId   String?
+  createdById String?
+  payload     Json?
+  result      Json?
+  error       String?    @db.Text
+  attempts    Int        @default(0)
+  maxAttempts Int        @default(3)
+  lockedBy    String?
+  lockedAt    DateTime?
+  heartbeatAt DateTime?
+  logs        String?    @db.Text
+  createdAt   DateTime   @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  updatedAt   DateTime   @updatedAt
+
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  scans            RepositoryScan[]
+  verificationRuns VerificationRun[]
+  patchReports     PatchReport[]
+
+  @@index([status, type])
+  @@index([projectId])
+  @@index([createdById])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String?
+  projectId  String?
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+}

@@ -6,28 +6,75 @@ Evidence-first security verification platform. PatchProof discovers vulnerabilit
 
 ```
 ├── BUILD_LOG.md           # Continuous build log & architectural decisions
+├── docker-compose.yml     # Local PostgreSQL 16 container service
+├── prisma/
+│   ├── schema.prisma      # Prisma schema (models, relations, enums, indexes)
+│   └── seed.js            # Initial seed script (admin demo user)
 ├── src/
 │   ├── app/               # Next.js App Router (pages & API routes)
 │   ├── components/
 │   │   ├── ui/            # Reusable UI design system primitives
 │   │   ├── landing/       # Marketing and landing page components
 │   │   └── app/           # Security verification application components
-│   └── lib/               # Shared utilities, helpers, and constants
+│   └── lib/               # Shared utilities, db client singleton, and constants
 ```
 
 ## Getting Started
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+### 1. Environment Configuration
 
-2. Run the development server:
-   ```bash
-   npm run dev
-   ```
+Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
+```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+Ensure `DATABASE_URL` and `DIRECT_URL` are configured:
+```env
+DATABASE_URL="postgresql://patchproof:patchproof_secret@localhost:5432/patchproof?schema=public"
+DIRECT_URL="postgresql://patchproof:patchproof_secret@localhost:5432/patchproof?schema=public"
+```
+
+For hosted databases like Neon or Supabase:
+- `DATABASE_URL`: Connection pooled string (e.g., PgBouncer on port 6543)
+- `DIRECT_URL`: Direct unpooled connection (port 5432) for schema migrations
+
+### 2. Start Local PostgreSQL Service
+
+Launch the PostgreSQL 16 container:
+```bash
+docker compose up -d
+```
+
+### 3. Run Database Migrations & Seed
+
+Apply the Prisma migrations to create all tables and enums:
+```bash
+npm run db:migrate
+```
+
+Seed the initial demo administrator user (no fake findings or mock reports):
+```bash
+npm run db:seed
+```
+
+To visually inspect database tables in a web UI:
+```bash
+npm run db:studio
+```
+
+### 4. Run the Development Server
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## API Health Check
+
+Check application and database status at:
+- [http://localhost:3000/api/health](http://localhost:3000/api/health)
+Returns `{ status: "ok", app: "patchproof", version: "0.1.0", time: "...", db: "up" | "down" }`
 
 ## Design System & Dev Kitchen Sink
 

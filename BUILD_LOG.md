@@ -206,4 +206,46 @@
 - Authentication routes (`/login`, `/signup`) arrive in step 5.
 - Dynamic backend job runners for execution sandboxes arrive in later steps.
 
+---
+
+## Step 4: Database Layer with PostgreSQL & Prisma (2026-10-29)
+
+### Decisions and assumptions
+- Installed matching, stable Prisma 6.19.3 (`prisma` and `@prisma/client`) with `bcryptjs` for secure password hashing.
+- Configured PostgreSQL 16 Alpine container in `docker-compose.yml` with healthchecks and persistent storage.
+- Documented both `DATABASE_URL` (connection-pooled) and `DIRECT_URL` (direct unpooled) in `.env.example` and `README.md` to support seamless transition to hosted PostgreSQL providers (Neon or Supabase).
+- Models use `cuid()` identifiers, automatic timestamps, strategic composite indexes, and cascading deletes where child entities depend on parent existence.
+- `AuditEvent` model is strictly append-only (contains `createdAt` but intentionally omits `updatedAt`).
+- `prisma/seed.js` seeds exactly ONE administrator user from `SEED_USER_EMAIL` and `SEED_USER_PASSWORD` with bcrypt hash; no synthetic findings, runs, or reports are created, maintaining strict evidence integrity.
+- Extended `/api/health` with a lightweight, non-blocking database query to report `db: 'up' | 'down'`.
+
+### What was built
+- `docker-compose.yml`: PostgreSQL 16 container service (`postgres:16-alpine`), internal health check, and volume `patchproof_postgres_data`.
+- `prisma/schema.prisma`:
+  - 10 Enums: `GlobalRole`, `ProjectRole`, `FindingSource`, `Severity`, `VerificationStatus`, `TriageStatus`, `ArtifactKind`, `PatchVerdict`, `ReviewDecision`, `JobStatus`.
+  - 13 Models: `User`, `Project`, `ProjectMember`, `RepositoryScan`, `Finding`, `VerificationRun`, `EvidenceArtifact`, `PatchReport`, `ReviewerDecision`, `Dependency`, `AiExplanation`, `Job`, `AuditEvent`.
+- `src/lib/db.js`: Safe singleton instance of `PrismaClient` preventing connection pool leaks during Next.js hot module reloading.
+- `prisma/seed.js`: Standalone seed script creating the initial demo admin user.
+- `prisma/migrations/20261029000000_init/migration.sql`: Generated initial PostgreSQL DDL migration script.
+- `src/app/api/health/route.js`: Dynamic endpoint returning `{ status, app, version, time, db: 'up' | 'down' }`.
+- `package.json`: Added `db:migrate`, `db:seed`, `db:studio`, and `postinstall` npm scripts.
+- `.env.example` & `README.md`: Documented local Docker setup, database URLs, migration steps, and Studio workflows.
+
+### Files added / modified
+- `docker-compose.yml` (added)
+- `prisma/schema.prisma` (added)
+- `prisma/seed.js` (added)
+- `prisma/migrations/20261029000000_init/migration.sql` (added)
+- `src/lib/db.js` (added)
+- `src/app/api/health/route.js` (modified)
+- `package.json` (modified)
+- `.env.example` (modified)
+- `README.md` (modified)
+- `BUILD_LOG.md` (modified)
+
+### Known limitations
+- Local database requires a running PostgreSQL instance or Docker container; when not running, `/api/health` gracefully reports `db: "down"`.
+- Authentication routes (`/login`, `/signup`) arrive in step 5.
+
+
 
