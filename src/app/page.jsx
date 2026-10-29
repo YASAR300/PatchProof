@@ -7,6 +7,14 @@ import {
   OpenToolingStrip,
   ProblemSection,
   WorkflowSection,
+  FeaturesBentoGrid,
+  VerificationMatrixSection,
+  ProvenanceSection,
+  SecurityModelSection,
+  AudienceSection,
+  PricingSection,
+  FaqSection,
+  FooterSection,
 } from "@/components/landing";
 
 export default function LandingPage() {
@@ -33,19 +41,15 @@ export default function LandingPage() {
         <OpenToolingStrip />
         <ProblemSection />
         <WorkflowSection />
+        <FeaturesBentoGrid />
+        <VerificationMatrixSection />
+        <ProvenanceSection />
+        <SecurityModelSection />
+        <AudienceSection />
+        <PricingSection />
+        <FaqSection />
       </main>
-      <footer className="py-12 bg-white border-t border-black/[0.08] text-center text-xs text-[#86868b] select-none">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-[#1d1d1f]">PatchProof</span>
-            <span>&bull;</span>
-            <span>Evidence-first security verification</span>
-          </div>
-          <div className="text-2xs font-mono text-black/40">
-            Step 2 of 19 &bull; Landing Part 1
-          </div>
-        </div>
-      </footer>
+      <FooterSection />
     </div>
   );
 }

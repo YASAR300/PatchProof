@@ -143,5 +143,67 @@
 
 ### Known limitations
 - Authentication routes (`/login`, `/signup`) arrive in step 5.
-- Second half of the landing page (Product, Evidence, Security, Pricing, Footer) arrives in step 3.
+- The `/dev/ui` route is restricted to non-production environments.
+
+---
+
+## Step 3: Landing Page Part 2 & SEO (2026-10-29)
+
+### Decisions and assumptions
+- Added remaining 8 sections in the exact requested order with full Apple-inspired light styling (except the dedicated dark Security Model section).
+- Every product visual across all 7 bento cards and evidence matrices is built purely from JSX, CSS, and SVG without any external image files.
+- The security model explicitly communicates that containers alone are not treated as a complete security boundary, detailing the defense-in-depth confinement model.
+- Dynamic metadata generation using `next/og` (`ImageResponse`) was adopted for `icon.jsx` (32x32 favicon) and `opengraph-image.jsx` (1200x630 social card).
+- All internal footer and navbar anchor links now resolve to live sections (`#product`, `#evidence`, `#security`, `#pricing`, `#faq`, `#workflow`).
+
+### What was built
+- **Features Bento Grid** (`src/components/landing/FeaturesBentoGrid.jsx`, `id="product"`):
+  - 7 cards of varied spans with interactive JSX/SVG visuals: Repository Security Scanner, Automated Vulnerability Verification, Patch Validation, AI Security Assistant, Dependency Intelligence, Continuous Security Monitoring, Security Evidence Dashboard.
+- **Verification Matrix** (`src/components/landing/VerificationMatrixSection.jsx`, `id="evidence"`):
+  - Large animated before-and-after table comparing Vulnerable version vs Candidate patch across security reproducers and normal functionality.
+  - Status explainer for `REPRODUCED`, `NOT_REPRODUCED`, `INCONCLUSIVE`, and `EXECUTION_ERROR`.
+  - Stated principle: "Not reproduced does not automatically mean false positive."
+  - Patch verdict chips: `FIX_VERIFIED`, `PATCH_NOT_VERIFIED`, and `REGRESSION_FAILURE`.
+- **Provenance Section** (`src/components/landing/ProvenanceSection.jsx`):
+  - Three-column transparency panel isolating "From the scanner", "Verified by a test", and "Written by AI".
+- **Security Model** (`src/components/landing/SecurityModelSection.jsx`, `id="security"`):
+  - Dark full-width section detailing isolated workers, network disconnection, resource limits, secretless execution, ephemeral teardowns, and immutable audit logs.
+  - Prominent honest note: "Containers alone are not treated as a complete security boundary."
+- **'Who it is for'** (`src/components/landing/AudienceSection.jsx`):
+  - 4 audience cards: SaaS engineering teams, software companies, open-source maintainers, application-security teams.
+- **Pricing** (`src/components/landing/PricingSection.jsx`, `id="pricing"`):
+  - 3 planned tiers: Free developer, Team, Enterprise with "Planned" tags and "Join early access" CTAs to `/signup`.
+- **FAQ Accordion** (`src/components/landing/FaqSection.jsx`, `id="faq"`):
+  - 6 interactive questions addressing scanner replacement, security guarantees, code execution, AI keys, language support, and code storage.
+- **Final CTA & Footer** (`src/components/landing/FooterSection.jsx`):
+  - Final conversion band, active anchor navigation columns, and credit: "PatchProof — built at Hacker House Goa".
+- **SEO Suite**:
+  - `src/app/sitemap.js` (valid dynamic sitemap).
+  - `src/app/robots.js` (crawling directives).
+  - `src/app/icon.jsx` (dynamic 32x32 shield favicon).
+  - `src/app/opengraph-image.jsx` (dynamic 1200x630 social card with next/og).
+  - Comprehensive OpenGraph and Twitter metadata in `src/app/layout.jsx`.
+
+### Files added / modified
+- `src/components/landing/FeaturesBentoGrid.jsx` (added)
+- `src/components/landing/VerificationMatrixSection.jsx` (added)
+- `src/components/landing/ProvenanceSection.jsx` (added)
+- `src/components/landing/SecurityModelSection.jsx` (added)
+- `src/components/landing/AudienceSection.jsx` (added)
+- `src/components/landing/PricingSection.jsx` (added)
+- `src/components/landing/FaqSection.jsx` (added)
+- `src/components/landing/FooterSection.jsx` (added)
+- `src/components/landing/index.js` (modified)
+- `src/app/page.jsx` (modified)
+- `src/app/layout.jsx` (modified)
+- `src/app/sitemap.js` (added)
+- `src/app/robots.js` (added)
+- `src/app/icon.jsx` (added)
+- `src/app/opengraph-image.jsx` (added)
+- `BUILD_LOG.md` (modified)
+
+### Known limitations
+- Authentication routes (`/login`, `/signup`) arrive in step 5.
+- Dynamic backend job runners for execution sandboxes arrive in later steps.
+
 
