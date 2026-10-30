@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  ShieldCheck,
   LayoutDashboard,
   FolderGit2,
   Bug,
@@ -24,36 +23,78 @@ import {
   Sun,
   Moon,
   LogOut,
-  User as UserIcon,
+  Plus,
 } from "lucide-react";
 import { Kbd } from "@/components/ui/Kbd";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import { CommandPalette } from "./CommandPalette";
 import { ShortcutManager } from "./ShortcutManager";
 import { cn } from "@/lib/cn";
+import { Logo } from "@/components/ui/Logo";
 
-const NAV_ITEMS = [
-  { label: "Overview", href: "/app", icon: LayoutDashboard },
-  { label: "Repositories", href: "/app/repositories", icon: FolderGit2 },
-  { label: "Findings", href: "/app/findings", icon: Bug },
-  { label: "Verification Runs", href: "/app/runs", icon: Terminal },
-  { label: "Patch Reports", href: "/app/reports", icon: FileCheck2 },
-  { label: "Dependencies", href: "/app/dependencies", icon: Package },
-  { label: "AI Assistant", href: "/app/assistant", icon: Bot },
-  { label: "History & Audit", href: "/app/audit", icon: History },
-  { label: "Settings", href: "/app/settings", icon: Settings },
+const NAV_GROUPS = [
+  {
+    label: null,
+    items: [
+      { label: "Overview", href: "/app", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Workflow",
+    items: [
+      { label: "Findings", href: "/app/findings", icon: Bug },
+      { label: "Verification Runs", href: "/app/runs", icon: Terminal },
+      { label: "Patch Reports", href: "/app/reports", icon: FileCheck2 },
+    ],
+  },
+  {
+    label: "Project",
+    items: [
+      { label: "Repositories", href: "/app/repositories", icon: FolderGit2 },
+      { label: "Dependencies", href: "/app/dependencies", icon: Package },
+      { label: "AI Assistant", href: "/app/assistant", icon: Bot },
+    ],
+  },
+  {
+    label: null,
+    items: [
+      { label: "History & Audit", href: "/app/audit", icon: History },
+      { label: "Settings", href: "/app/settings", icon: Settings },
+    ],
+  },
 ];
 
-export function AppShell({ children, user }) {
+const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+
+export function AppShell({ children, user, activeProject, userProjects = [] }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [theme, setTheme] = useState("dark");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+  const searchTriggerRef = useRef(null);
 
-  // Sync theme with localStorage, cookie and html data-theme
+  useEffect(() => {
+    setIsMac(/(Mac|iPhone|iPod|iPad)/i.test(navigator?.userAgent || ""));
+  }, []);
+
+  const handleSelectProject = async (projectId) => {
+    if (activeProject?.id === projectId) return;
+    try {
+      await fetch("/api/projects/switch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      router.refresh();
+    } catch (e) {
+      console.error("Failed to switch project:", e);
+    }
+  };
+
   useEffect(() => {
     const savedTheme = localStorage.getItem("patchproof_theme") || "dark";
     setTheme(savedTheme);
@@ -77,15 +118,52 @@ export function AppShell({ children, user }) {
     localStorage.setItem("patchproof_sidebar_collapsed", String(next));
   };
 
-  // Determine current page title for breadcrumb
-  const currentNav = NAV_ITEMS.find((item) =>
+  const currentNav = ALL_NAV_ITEMS.find((item) =>
     item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href)
   );
   const pageTitle = currentNav?.label || "Workspace";
 
+  // Project dropdown items
+  const projectMenuItems = [
+    { header: `Projects (${userProjects.length})` },
+    ...userProjects.map((p) => ({
+      id: p.id,
+      label: p.name,
+      icon: FolderGit2,
+      selected: activeProject?.id === p.id,
+      onClick: () => handleSelectProject(p.id),
+    })),
+    { divider: true },
+    {
+      id: "connect-repo",
+      label: "Connect a repository",
+      icon: Plus,
+      onClick: () => router.push("/app/repositories/new"),
+    },
+  ];
+
+  // User menu dropdown items
+  const userMenuItems = [
+    { header: user?.name ? `${user.name}` : user?.email || "admin@patchproof.dev" },
+    {
+      id: "theme-toggle",
+      label: theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode",
+      icon: theme === "dark" ? Sun : Moon,
+      onClick: toggleTheme,
+    },
+    { divider: true },
+    {
+      id: "signout-action",
+      label: "Sign out",
+      icon: LogOut,
+      destructive: true,
+      onClick: () => signOut({ callbackUrl: "/login" }),
+    },
+  ];
+
   return (
     <div
-      className="min-h-screen bg-background text-text font-sans flex flex-col md:flex-row transition-colors duration-150"
+      className="min-h-screen bg-background text-text font-sans flex flex-col md:flex-row"
       data-theme={theme}
     >
       {/* Keyboard Shortcuts Listener */}
@@ -97,6 +175,7 @@ export function AppShell({ children, user }) {
         onClose={() => setIsPaletteOpen(false)}
         currentTheme={theme}
         onToggleTheme={toggleTheme}
+        triggerRef={searchTriggerRef}
       />
 
       {/* Mobile Drawer Backdrop */}
@@ -108,123 +187,122 @@ export function AppShell({ children, user }) {
         />
       )}
 
-      {/* Sidebar: 240px wide or 56px when collapsed */}
+      {/* Sidebar: 232px wide or 48px when collapsed */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border bg-surface transition-all duration-200 select-none",
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border bg-sidebar select-none transition-[width] duration-150 ease-out",
           // Mobile state
-          isMobileOpen ? "translate-x-0 w-60" : "-translate-x-full md:translate-x-0",
+          isMobileOpen ? "translate-x-0 w-[232px]" : "-translate-x-full md:translate-x-0",
           // Desktop state
-          isCollapsed ? "md:w-14" : "md:w-60"
+          isCollapsed ? "md:w-[48px]" : "md:w-[232px]"
         )}
       >
-        {/* Top: Logo & Project Switcher */}
-        <div className="h-14 px-3.5 border-b border-border flex items-center justify-between">
-          <Link
-            href="/app"
-            className={cn(
-              "flex items-center gap-2.5 overflow-hidden",
-              isCollapsed && "md:justify-center md:w-full"
-            )}
-          >
-            <div className="w-7 h-7 rounded-lg bg-accent text-accent-foreground flex items-center justify-center flex-shrink-0">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            {!isCollapsed && (
-              <span className="font-semibold text-xs tracking-tight text-text truncate">
-                PatchProof
-              </span>
-            )}
-          </Link>
+        {/* Top: 48px Header Row */}
+        <div className="h-12 px-3 border-b border-border flex items-center justify-between">
+          <Logo href="/app" variant={isCollapsed ? "mark" : "horizontal"} size="sm" />
 
           {/* Mobile close */}
           <button
             onClick={() => setIsMobileOpen(false)}
-            className="md:hidden p-1 text-text-muted hover:text-text rounded"
+            className="md:hidden p-1 text-text-tertiary hover:text-text rounded-[6px]"
             aria-label="Close sidebar"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Project Switcher Dropdown */}
-        <div className="p-2 border-b border-border/60 relative">
-          <button
-            onClick={() => setIsProjectDropdownOpen(!isProjectDropdownOpen)}
-            className={cn(
-              "w-full h-8.5 rounded-lg border border-border/70 bg-surface-raised/40 hover:bg-surface-raised px-2.5 flex items-center justify-between text-2xs text-text transition-colors",
-              isCollapsed && "md:justify-center md:px-0"
-            )}
-            title="Project Switcher"
-          >
-            {!isCollapsed ? (
-              <>
-                <span className="truncate font-medium text-text-muted">No project yet</span>
-                <ChevronDown className="w-3.5 h-3.5 text-text-muted flex-shrink-0 ml-1" />
-              </>
-            ) : (
-              <span className="font-mono text-2xs text-text-muted">--</span>
-            )}
-          </button>
-
-          {isProjectDropdownOpen && !isCollapsed && (
-            <div className="absolute left-2 right-2 top-11 p-3 rounded-lg border border-border bg-surface shadow-xl z-20 text-2xs space-y-2 animate-in fade-in duration-100">
-              <div className="text-text-muted">No projects created yet.</div>
-              <Link
-                href="/app/repositories"
-                onClick={() => setIsProjectDropdownOpen(false)}
-                className="block text-accent hover:underline font-medium"
+        {/* Project Switcher Row: 32px row, borderless, radius 6px */}
+        <div className="p-2 border-b border-border">
+          <DropdownMenu
+            className="w-full"
+            items={projectMenuItems}
+            trigger={
+              <button
+                type="button"
+                className={cn(
+                  "w-full h-8 rounded-[6px] border-0 bg-transparent hover:bg-surface-hover px-2 flex items-center justify-between text-xs text-text outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                  isCollapsed && "md:justify-center md:px-0"
+                )}
+                title={activeProject ? activeProject.name : "Select Project"}
               >
-                + Connect a repository
-              </Link>
-            </div>
-          )}
+                {!isCollapsed ? (
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="w-5 h-5 rounded-[4px] bg-surface-raised border border-border text-[11px] font-mono font-medium text-text flex items-center justify-center flex-shrink-0">
+                      {activeProject ? activeProject.name.slice(0, 1).toUpperCase() : "-"}
+                    </span>
+                    <span className="truncate font-medium text-[13px] text-text">
+                      {activeProject ? activeProject.name : "No project yet"}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0 ml-auto" />
+                  </div>
+                ) : (
+                  <span className="w-5 h-5 rounded-[4px] bg-surface-raised border border-border text-[11px] font-mono font-medium text-text flex items-center justify-center">
+                    {activeProject ? activeProject.name.slice(0, 1).toUpperCase() : "-"}
+                  </span>
+                )}
+              </button>
+            }
+          />
         </div>
 
-        {/* Navigation Items (Linear-style dense text & status icons) */}
-        <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              item.href === "/app"
-                ? pathname === "/app"
-                : pathname.startsWith(item.href);
+        {/* Navigation Groups (Linear-style dense text & status icons) */}
+        <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-3">
+          {NAV_GROUPS.map((group, groupIdx) => (
+            <div key={groupIdx} className="space-y-0.5">
+              {!isCollapsed && group.label && (
+                <div className="px-2 pt-1 pb-1 text-[11px] font-medium text-text-tertiary select-none">
+                  {group.label}
+                </div>
+              )}
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  item.href === "/app"
+                    ? pathname === "/app"
+                    : pathname.startsWith(item.href);
 
-            const linkContent = (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setIsMobileOpen(false)}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-md text-xs font-medium transition-colors select-none",
-                  isCollapsed ? "justify-center h-8.5 w-full px-0" : "px-2.5 py-1.5",
-                  isActive
-                    ? "bg-accent/15 text-accent font-semibold"
-                    : "text-text-muted hover:text-text hover:bg-surface-raised"
-                )}
-              >
-                <Icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-accent" : "text-text-muted")} />
-                {!isCollapsed && <span className="truncate">{item.label}</span>}
-              </Link>
-            );
+                const linkContent = (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileOpen(false)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-[6px] h-7 px-2 text-[13px] font-normal transition-colors select-none outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                      isCollapsed ? "justify-center w-full px-0" : "w-full",
+                      isActive
+                        ? "bg-surface-selected text-text font-medium"
+                        : "text-text-secondary hover:text-text hover:bg-surface-hover"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "w-4 h-4 flex-shrink-0 stroke-[1.5]",
+                        isActive ? "text-text" : "text-text-secondary"
+                      )}
+                    />
+                    {!isCollapsed && <span className="truncate">{item.label}</span>}
+                  </Link>
+                );
 
-            if (isCollapsed) {
-              return (
-                <Tooltip key={item.href} content={item.label} position="right">
-                  {linkContent}
-                </Tooltip>
-              );
-            }
+                if (isCollapsed) {
+                  return (
+                    <Tooltip key={item.href} content={item.label} position="right">
+                      {linkContent}
+                    </Tooltip>
+                  );
+                }
 
-            return linkContent;
-          })}
+                return linkContent;
+              })}
+            </div>
+          ))}
         </nav>
 
-        {/* Bottom Sidebar Footer & Collapse Toggle */}
-        <div className="p-2 border-t border-border flex items-center justify-between">
+        {/* Sidebar Footer: 28px status row with flat 6px dot & collapse icon */}
+        <div className="h-10 px-2 border-t border-border flex items-center justify-between bg-sidebar">
           {!isCollapsed && (
-            <div className="flex items-center gap-2 px-1 text-2xs text-text-muted truncate">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <div className="flex items-center gap-2 px-1 text-xs text-text-tertiary truncate select-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-semantic-green flex-shrink-0" />
               <span className="truncate">Local Engine Ready</span>
             </div>
           )}
@@ -232,7 +310,7 @@ export function AppShell({ children, user }) {
           <button
             onClick={toggleSidebar}
             className={cn(
-              "hidden md:flex p-1.5 rounded-md text-text-muted hover:text-text hover:bg-surface-raised transition-colors",
+              "hidden md:flex p-1 rounded-[6px] text-text-tertiary hover:text-text hover:bg-surface-hover transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent",
               isCollapsed && "mx-auto"
             )}
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -246,93 +324,76 @@ export function AppShell({ children, user }) {
       {/* Main Content Area */}
       <div
         className={cn(
-          "flex-1 flex flex-col min-w-0 transition-all duration-200",
-          isCollapsed ? "md:pl-14" : "md:pl-60"
+          "flex-1 flex flex-col min-w-0 transition-[padding] duration-150 ease-out",
+          isCollapsed ? "md:pl-[48px]" : "md:pl-[232px]"
         )}
       >
-        {/* Topbar */}
-        <header className="h-14 sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4 select-none">
-          {/* Left: Mobile hamburger & Breadcrumb */}
-          <div className="flex items-center gap-3">
+        {/* Topbar: 48px high with 1px bottom border */}
+        <header className="h-12 sticky top-0 z-30 border-b border-border bg-surface/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4 select-none">
+          {/* Left: Mobile hamburger & Breadcrumb (sans-serif 13px) */}
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setIsMobileOpen(true)}
-              className="md:hidden p-1.5 -ml-1 text-text-muted hover:text-text rounded-md"
+              className="md:hidden p-1 -ml-1 text-text-tertiary hover:text-text rounded-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               aria-label="Open navigation menu"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-1.5 text-xs font-mono text-text-muted">
-              <Link href="/app" className="hover:text-text transition-colors">
-                app
-              </Link>
-              <span>/</span>
-              <span className="text-text font-medium">{pageTitle.toLowerCase()}</span>
+            <div className="flex items-center gap-1.5 text-[13px] font-sans text-text-secondary">
+              <span className="truncate max-w-[160px]">{activeProject?.name || "Workspace"}</span>
+              <span className="text-text-tertiary">/</span>
+              <span className="text-text font-medium">{pageTitle}</span>
             </div>
           </div>
 
-          {/* Right: Search Command Palette Trigger & User Menu */}
-          <div className="flex items-center gap-3">
-            {/* Command Palette Trigger */}
+          {/* Right: Search Command Palette Trigger (32px high, 10px px, 14px icon, 8px gap) & Avatar (24px) */}
+          <div className="flex items-center gap-2.5">
+            {/* Mobile search trigger (icon-only 36px) */}
             <button
+              ref={searchTriggerRef}
               onClick={() => setIsPaletteOpen(true)}
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border/80 bg-surface-raised/40 hover:bg-surface-raised text-2xs text-text-muted transition-colors"
-              title="Search or jump to (Cmd+K)"
+              aria-label="Search"
+              className="sm:hidden w-9 h-9 flex items-center justify-center rounded-[6px] border border-border bg-surface hover:bg-surface-hover text-text-secondary hover:text-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <Search className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Search or jump to…</span>
-              <div className="flex items-center gap-0.5 ml-1">
-                <Kbd>⌘</Kbd>
-                <Kbd>K</Kbd>
-              </div>
+              <Search className="w-3.5 h-3.5 stroke-[1.5]" aria-hidden="true" />
             </button>
 
-            {/* User Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-2 p-1 rounded-lg hover:bg-surface-raised transition-colors"
-                aria-expanded={isUserMenuOpen}
-                aria-label="User profile menu"
-              >
-                <div className="w-7 h-7 rounded-full bg-accent/20 border border-accent/40 text-accent flex items-center justify-center font-semibold text-2xs">
-                  {user?.name ? user.name[0].toUpperCase() : user?.email ? user.email[0].toUpperCase() : "U"}
-                </div>
-                <ChevronDown className="w-3 h-3 text-text-muted" />
-              </button>
+            {/* Desktop search trigger (32px high, 10px px, 14px icon, 8px gap, one combined Kbd chip) */}
+            <button
+              onClick={() => setIsPaletteOpen(true)}
+              className="hidden sm:flex items-center h-8 px-2.5 rounded-[6px] border border-border bg-surface hover:bg-surface-hover text-xs text-text-secondary hover:text-text w-[220px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent gap-2"
+              title={`Search or jump to (${isMac ? "Cmd" : "Ctrl"}+K)`}
+            >
+              <Search className="w-3.5 h-3.5 stroke-[1.5] text-text-tertiary flex-shrink-0" aria-hidden="true" />
+              <span className="truncate text-xs">Search or jump to…</span>
+              <span className="ml-auto flex items-center">
+                <Kbd>{isMac ? "⌘K" : "Ctrl K"}</Kbd>
+              </span>
+            </button>
 
-              {isUserMenuOpen && (
-                <div className="absolute right-0 top-10 w-56 rounded-xl border border-border bg-surface p-2 shadow-xl z-50 text-xs animate-in zoom-in-95 duration-100 space-y-1">
-                  <div className="px-2.5 py-2 border-b border-border/50">
-                    <div className="font-semibold text-text truncate">{user?.name || "Administrator"}</div>
-                    <div className="text-2xs text-text-muted font-mono truncate">{user?.email || "admin@patchproof.dev"}</div>
+            {/* User Dropdown with 24px Avatar circle */}
+            <DropdownMenu
+              align="end"
+              items={userMenuItems}
+              trigger={
+                <button
+                  type="button"
+                  className="flex items-center gap-1.5 p-0.5 rounded-[6px] hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  aria-label="User profile menu"
+                >
+                  <div className="w-6 h-6 rounded-full bg-surface-raised border border-border text-text font-medium text-[11px] flex items-center justify-center">
+                    {user?.name ? user.name[0].toUpperCase() : user?.email ? user.email[0].toUpperCase() : "A"}
                   </div>
-
-                  <button
-                    onClick={toggleTheme}
-                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-text hover:bg-surface-raised text-xs transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
-                      <span>Theme: {theme === "dark" ? "Dark" : "Light"}</span>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => signOut({ callbackUrl: "/login" })}
-                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-rose-500 hover:bg-rose-500/10 text-xs transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sign out</span>
-                  </button>
-                </div>
-              )}
-            </div>
+                  <ChevronDown className="w-3 h-3 text-text-tertiary" />
+                </button>
+              }
+            />
           </div>
         </header>
 
         {/* Dashboard Page Body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 w-full mx-auto">
           {children}
         </main>
       </div>

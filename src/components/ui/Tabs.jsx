@@ -24,7 +24,7 @@ export function Tabs({
 
   return (
     <TabsContext.Provider value={{ activeValue, setActiveValue }}>
-      <div className={cn("w-full space-y-3 font-sans", className)}>{children}</div>
+      <div className={cn("w-full font-sans", className)}>{children}</div>
     </TabsContext.Provider>
   );
 }
@@ -34,7 +34,7 @@ export function TabsList({ className, children, ...props }) {
     <div
       role="tablist"
       className={cn(
-        "inline-flex h-8 items-center justify-start rounded-lg bg-surface-raised p-1 text-text-muted border border-border/60 gap-1",
+        "flex items-center gap-6 border-b border-border text-xs w-full select-none",
         className
       )}
       {...props}
@@ -56,10 +56,10 @@ export function TabsTrigger({ value, children, className, disabled = false, ...p
       disabled={disabled}
       onClick={() => setActiveValue(value)}
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium transition-all select-none outline-none",
+        "relative py-2.5 text-xs font-medium transition-colors select-none outline-none whitespace-nowrap -mb-px flex items-center gap-2",
         isActive
-          ? "bg-surface text-text shadow-sm"
-          : "text-text-muted hover:text-text hover:bg-surface/50",
+          ? "text-text border-b-2 border-accent"
+          : "text-text-secondary hover:text-text border-b-2 border-transparent",
         disabled && "pointer-events-none opacity-40",
         className
       )}
@@ -77,7 +77,7 @@ export function TabsContent({ value, children, className, ...props }) {
   return (
     <div
       role="tabpanel"
-      className={cn("outline-none text-text animate-in fade-in duration-150", className)}
+      className={cn("pt-4 outline-none text-text", className)}
       {...props}
     >
       {children}

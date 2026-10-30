@@ -16,23 +16,20 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#000000",
-          borderRadius: 8,
+          backgroundColor: "#5B6CFF",
+          borderRadius: 7,
           color: "#ffffff",
         }}
       >
         <svg
           width="20"
           height="20"
-          viewBox="0 0 24 24"
+          viewBox="0 0 32 32"
           fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
         >
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          <path d="m9 12 2 2 4-4" />
+          <path d="M7 7C7 7 15 5 16 5V27C13.5 25.5 7 20.5 7 14V7Z" fill="#FFFFFF" fillOpacity="0.95" />
+          <path d="M25 7C25 7 17 5 16 5V27C18.5 25.5 25 20.5 25 14V7Z" fill="#FFFFFF" />
+          <path d="M12 15L15 18L21 11" stroke="#5B6CFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
     ),

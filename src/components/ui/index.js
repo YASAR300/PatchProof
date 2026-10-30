@@ -20,3 +20,6 @@ export { Skeleton } from "./Skeleton";
 export { EmptyState } from "./EmptyState";
 export { Dialog, DialogFooter } from "./Dialog";
 export { ToastProvider, useToast } from "./Toast";
+export { SearchField } from "./SearchField";
+export { DropdownMenu } from "./DropdownMenu";
+export { Logo } from "./Logo";

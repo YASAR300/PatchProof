@@ -26,14 +26,14 @@ export const Input = forwardRef(function Input(
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-2xs font-medium text-text-muted select-none"
+          className="block text-[11px] font-medium text-text-tertiary select-none"
         >
           {label}
         </label>
       )}
       <div className="relative flex items-center">
         {Icon && (
-          <div className="absolute left-3 text-text-muted pointer-events-none">
+          <div className="absolute left-2.5 text-text-tertiary pointer-events-none">
             <Icon className="w-3.5 h-3.5" />
           </div>
         )}
@@ -43,27 +43,32 @@ export const Input = forwardRef(function Input(
           type={type}
           disabled={disabled}
           className={cn(
-            "w-full h-8.5 rounded-md border border-border bg-surface px-3 text-xs text-text placeholder:text-text-muted/60 transition-colors duration-150 outline-none",
-            "focus:border-accent focus:ring-1 focus:ring-accent/40",
-            Icon && "pl-8.5",
-            EndIcon && "pr-8.5",
-            error && "border-danger focus:border-danger focus:ring-danger/30",
+            "w-full h-8 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text placeholder:text-text-tertiary transition-colors outline-none",
+            "focus:border-accent hover:border-border-strong",
+            Icon && "pl-8",
+            EndIcon && "pr-8",
+            error && "border-state-danger-border text-state-danger-fg",
             disabled && "opacity-50 cursor-not-allowed bg-surface-raised",
             className
           )}
           {...props}
         />
         {EndIcon && (
-          <div className="absolute right-3 text-text-muted pointer-events-none">
+          <div className="absolute right-2.5 text-text-tertiary pointer-events-none">
             <EndIcon className="w-3.5 h-3.5" />
           </div>
         )}
       </div>
-      {error ? (
-        <p className="text-2xs text-danger font-medium">{error}</p>
-      ) : helperText ? (
-        <p className="text-2xs text-text-muted">{helperText}</p>
-      ) : null}
+      {error && (
+        <p className="text-[11px] text-state-danger-fg leading-tight">
+          {error}
+        </p>
+      )}
+      {helperText && !error && (
+        <p className="text-[11px] text-text-tertiary leading-tight">
+          {helperText}
+        </p>
+      )}
     </div>
   );
 });

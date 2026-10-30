@@ -3,26 +3,43 @@ import { ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export function EmptyState({
-  icon: Icon = ShieldAlert,
+  icon,
   title = "No items found",
-  description = "Get started by running a security verification or adding a test harness.",
+  description = "Get started by running a security verification or connecting a repository.",
   action,
   className,
   ...props
 }) {
+  const renderIcon = () => {
+    if (!icon) {
+      return <ShieldAlert className="w-4 h-4 text-text-secondary" aria-hidden="true" />;
+    }
+    if (React.isValidElement(icon)) {
+      return React.cloneElement(icon, {
+        className: cn("w-4 h-4 text-text-secondary", icon.props?.className),
+        "aria-hidden": "true",
+      });
+    }
+    if (typeof icon === "function" || typeof icon === "object") {
+      const IconComp = icon;
+      return <IconComp className="w-4 h-4 text-text-secondary" aria-hidden="true" />;
+    }
+    return null;
+  };
+
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center text-center p-8 sm:p-12 border border-dashed border-border rounded-xl bg-surface/40",
+        "flex flex-col items-center justify-center text-center p-6 sm:p-8 border border-dashed border-border rounded-[8px] bg-surface",
         className
       )}
       {...props}
     >
-      <div className="w-10 h-10 rounded-full bg-surface-raised border border-border flex items-center justify-center text-text-muted mb-3.5">
-        <Icon className="w-5 h-5 text-text-muted" aria-hidden="true" />
+      <div className="w-8 h-8 rounded-[6px] bg-surface-raised border border-border flex items-center justify-center text-text-secondary mb-3">
+        {renderIcon()}
       </div>
-      <h3 className="text-sm font-semibold text-text tracking-tight mb-1">{title}</h3>
-      <p className="text-xs text-text-muted max-w-sm mb-5 leading-relaxed">{description}</p>
+      <h3 className="text-[13px] font-medium text-text tracking-tight mb-1">{title}</h3>
+      <p className="text-xs text-text-secondary max-w-sm mb-4 leading-relaxed">{description}</p>
       {action && <div className="inline-flex items-center gap-2">{action}</div>}
     </div>
   );

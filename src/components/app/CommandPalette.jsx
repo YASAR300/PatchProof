@@ -22,11 +22,12 @@ import {
 import { Kbd } from "@/components/ui/Kbd";
 import { cn } from "@/lib/cn";
 
-export function CommandPalette({ isOpen, onClose, currentTheme, onToggleTheme }) {
+export function CommandPalette({ isOpen, onClose, currentTheme, onToggleTheme, triggerRef }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef(null);
+  const modalRef = useRef(null);
 
   const COMMANDS = [
     {
@@ -117,16 +118,25 @@ export function CommandPalette({ isOpen, onClose, currentTheme, onToggleTheme })
     },
   ];
 
-  const filteredCommands = COMMANDS.filter((cmd) =>
-    cmd.title.toLowerCase().includes(query.toLowerCase()) ||
-    cmd.category.toLowerCase().includes(query.toLowerCase())
+  const filteredCommands = COMMANDS.filter(
+    (cmd) =>
+      cmd.title.toLowerCase().includes(query.toLowerCase()) ||
+      cmd.category.toLowerCase().includes(query.toLowerCase())
   );
+
+  const handleClose = () => {
+    onClose();
+    if (triggerRef?.current) {
+      triggerRef.current.focus();
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
       setQuery("");
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      const timer = setTimeout(() => inputRef.current?.focus(), 50);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -137,7 +147,7 @@ export function CommandPalette({ isOpen, onClose, currentTheme, onToggleTheme })
   const executeSelected = () => {
     if (filteredCommands[selectedIndex]) {
       filteredCommands[selectedIndex].action();
-      onClose();
+      handleClose();
     }
   };
 
@@ -153,84 +163,111 @@ export function CommandPalette({ isOpen, onClose, currentTheme, onToggleTheme })
       executeSelected();
     } else if (e.key === "Escape") {
       e.preventDefault();
-      onClose();
+      handleClose();
+    } else if (e.key === "Tab") {
+      // Focus trapping inside the palette
+      e.preventDefault();
+      inputRef.current?.focus();
     }
   };
 
   if (!isOpen) return null;
+
+  // Group commands by category
+  const categories = Array.from(new Set(filteredCommands.map((c) => c.category)));
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4"
       role="dialog"
       aria-modal="true"
+      aria-label="Command palette"
       onKeyDown={handleKeyDown}
     >
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-100"
-        onClick={onClose}
+        onClick={handleClose}
         aria-hidden="true"
       />
 
       {/* Palette Modal */}
-      <div className="relative w-full max-w-xl rounded-xl border border-border bg-surface text-text shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 z-10 font-sans">
+      <div
+        ref={modalRef}
+        className="relative w-full max-w-xl rounded-[12px] border border-border bg-surface text-text shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 z-10 font-sans"
+      >
         {/* Search Input Bar */}
-        <div className="flex items-center px-4 border-b border-border">
-          <Search className="w-4 h-4 text-text-muted mr-3 flex-shrink-0" />
+        <div className="flex items-center px-3 border-b border-border h-11 gap-2">
+          <Search className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
             placeholder="Type a command or jump to..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full h-12 bg-transparent text-xs text-text placeholder:text-text-muted/60 outline-none"
+            className="w-full bg-transparent text-xs text-text placeholder:text-text-tertiary outline-none border-none focus:outline-none ring-0 focus:ring-0"
+            aria-label="Command search query"
           />
           <button
-            onClick={onClose}
-            className="p-1 text-text-muted hover:text-text rounded"
+            onClick={handleClose}
+            className="p-1 text-text-tertiary hover:text-text rounded-[4px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             aria-label="Close command palette"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {/* Command List */}
-        <div className="max-h-80 overflow-y-auto p-2 divide-y divide-border/40">
+        <div className="max-h-80 overflow-y-auto p-1 divide-y divide-border/20">
           {filteredCommands.length === 0 ? (
-            <div className="p-6 text-center text-xs text-text-muted">
+            <div className="p-8 text-center text-xs text-text-secondary">
               No matching commands found.
             </div>
           ) : (
-            filteredCommands.map((cmd, idx) => {
-              const Icon = cmd.icon;
-              const isSelected = idx === selectedIndex;
+            categories.map((category) => {
+              const categoryCommands = filteredCommands.filter((c) => c.category === category);
               return (
-                <div
-                  key={cmd.id}
-                  onClick={() => {
-                    cmd.action();
-                    onClose();
-                  }}
-                  onMouseEnter={() => setSelectedIndex(idx)}
-                  className={cn(
-                    "flex items-center justify-between px-3 py-2.5 rounded-lg text-xs cursor-pointer select-none transition-colors",
-                    isSelected ? "bg-accent/15 text-accent font-medium" : "text-text hover:bg-surface-raised"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className="w-4 h-4 flex-shrink-0" />
-                    <span>{cmd.title}</span>
+                <div key={category} className="py-1">
+                  <div className="px-2 py-1 text-[11px] font-medium text-text-tertiary select-none">
+                    {category}
                   </div>
-                  {cmd.shortcut ? (
-                    <div className="flex items-center gap-1 font-mono text-2xs text-text-muted">
-                      {cmd.shortcut.split(" ").map((k) => (
-                        <Kbd key={k}>{k}</Kbd>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-2xs font-mono text-text-muted/60">{cmd.category}</span>
-                  )}
+                  {categoryCommands.map((cmd) => {
+                    const globalIdx = filteredCommands.indexOf(cmd);
+                    const isSelected = globalIdx === selectedIndex;
+                    const Icon = cmd.icon;
+
+                    return (
+                      <button
+                        key={cmd.id}
+                        type="button"
+                        onClick={() => {
+                          cmd.action();
+                          handleClose();
+                        }}
+                        onMouseEnter={() => setSelectedIndex(globalIdx)}
+                        className={cn(
+                          "w-full h-8 px-2 rounded-[6px] flex items-center justify-between text-xs cursor-pointer select-none transition-colors outline-none",
+                          isSelected
+                            ? "bg-surface-selected text-text font-medium"
+                            : "text-text-secondary hover:bg-surface-hover hover:text-text"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
+                            <Icon className="w-4 h-4" aria-hidden="true" />
+                          </span>
+                          <span className="truncate">{cmd.title}</span>
+                        </div>
+                        {cmd.shortcut ? (
+                          <div className="flex items-center gap-1 font-mono text-2xs text-text-muted flex-shrink-0 ml-2">
+                            {cmd.shortcut.split(" ").map((k) => (
+                              <Kbd key={k}>{k}</Kbd>
+                            ))}
+                          </div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               );
             })
@@ -238,7 +275,7 @@ export function CommandPalette({ isOpen, onClose, currentTheme, onToggleTheme })
         </div>
 
         {/* Footer shortcuts helper */}
-        <div className="px-4 py-2 border-t border-border/50 bg-surface-raised/40 text-2xs text-text-muted flex items-center justify-between">
+        <div className="px-3 py-2 border-t border-border/50 bg-surface-raised/40 text-2xs text-text-muted flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span>Use</span>
             <Kbd>↑</Kbd>

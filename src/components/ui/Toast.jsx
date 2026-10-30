@@ -59,24 +59,16 @@ function ToastItem({ toast, onDismiss }) {
   const { title, description, variant } = toast;
 
   const icons = {
-    default: <Info className="w-4 h-4 text-accent flex-shrink-0" />,
-    success: <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />,
-    warning: <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />,
-    danger: <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />,
-  };
-
-  const borderVariants = {
-    default: "border-border",
-    success: "border-emerald-500/30",
-    warning: "border-amber-500/30",
-    danger: "border-rose-500/30",
+    default: <Info className="w-4 h-4 text-accent flex-shrink-0" aria-hidden="true" />,
+    success: <CheckCircle2 className="w-4 h-4 text-accent flex-shrink-0" aria-hidden="true" />,
+    warning: <AlertTriangle className="w-4 h-4 text-text-muted flex-shrink-0" aria-hidden="true" />,
+    danger: <AlertCircle className="w-4 h-4 text-text-muted flex-shrink-0" aria-hidden="true" />,
   };
 
   return (
     <div
       className={cn(
-        "pointer-events-auto flex items-start gap-3 p-3.5 rounded-lg shadow-lg border text-sm backdrop-blur-md bg-surface/95 transition-all animate-in fade-in slide-in-from-bottom-2",
-        borderVariants[variant] || borderVariants.default
+        "pointer-events-auto flex items-start gap-3 p-3.5 rounded-lg shadow-elevation-2 border border-border text-sm bg-surface transition-all animate-in fade-in slide-in-from-bottom-2"
       )}
       role="status"
     >

@@ -51,10 +51,10 @@ export function Dialog({
         aria-hidden="true"
       />
 
-      {/* Dialog Window */}
+      {/* Dialog Window: strictly 12px radius */}
       <div
         className={cn(
-          "relative w-full max-w-lg rounded-xl border border-border bg-surface p-5 sm:p-6 shadow-2xl",
+          "relative w-full max-w-lg rounded-[12px] border border-border bg-surface p-5 sm:p-6 shadow-2xl",
           "animate-in zoom-in-95 fade-in duration-150 z-10",
           className
         )}

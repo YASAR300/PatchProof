@@ -1,0 +1,154 @@
+<svg width="1200" height="1520" viewBox="0 0 1200 1520" fill="none" xmlns="http://www.w3.org/2000/svg" style="background:#F1F5F9; font-family:-apple-system, BlinkMacSystemFont, 'Inter', 'Geist', 'Segoe UI', Roboto, sans-serif;">
+  
+  <!-- Title & Intro -->
+  <rect x="0" y="0" width="1200" height="110" fill="#FFFFFF" />
+  <line x1="0" y1="110" x2="1200" y2="110" stroke="#E2E8F0" stroke-width="1" />
+  <text x="60" y="52" font-size="24" font-weight="800" fill="#0B0B0D" letter-spacing="-0.03em">PatchProof Brand Identity Kit</text>
+  <text x="60" y="80" font-size="14" font-weight="500" fill="#64748B">Concept 3 Refinement: Monogram P with Precision Checkmark Counter • Production Assets</text>
+
+  <!-- VIEW 1 & VIEW 2: Primary Mark on White & Near-Black (Side-by-Side) -->
+  <!-- View 1: Primary Mark on White -->
+  <g transform="translate(60, 140)">
+    <rect width="520" height="260" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" />
+    <text x="32" y="40" font-size="12" font-weight="700" fill="#64748B" letter-spacing="0.08em" text-transform="uppercase">1. Primary Mark — White Surface</text>
+    <g transform="translate(212, 85) scale(1.5)">
+      <rect x="10" y="8" width="12" height="48" rx="2" fill="#0B0B0D" />
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M22 8H39C47.2843 8 54 14.7157 54 23C54 31.2843 47.2843 38 39 38H22V8ZM27 23.5L33.5 30L46 17.5L43 14.5L33.5 24L30 20.5L27 23.5Z" fill="#5B6CFF" />
+    </g>
+    <text x="260" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#94A3B8">Stem: #0B0B0D • Loop: #5B6CFF • Counter: #FFFFFF</text>
+  </g>
+
+  <!-- View 2: Primary Mark on Near-Black -->
+  <g transform="translate(620, 140)">
+    <rect width="520" height="260" rx="16" fill="#0B0B0D" stroke="#1E293B" stroke-width="1" />
+    <text x="32" y="40" font-size="12" font-weight="700" fill="#94A3B8" letter-spacing="0.08em" text-transform="uppercase">2. Primary Mark — Dark Surface</text>
+    <g transform="translate(212, 85) scale(1.5)">
+      <rect x="10" y="8" width="12" height="48" rx="2" fill="#FFFFFF" />
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M22 8H39C47.2843 8 54 14.7157 54 23C54 31.2843 47.2843 38 39 38H22V8ZM27 23.5L33.5 30L46 17.5L43 14.5L33.5 24L30 20.5L27 23.5Z" fill="#5B6CFF" />
+    </g>
+    <text x="260" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#64748B">Stem: #FFFFFF • Loop: #5B6CFF • Counter: #0B0B0D</text>
+  </g>
+
+  <!-- VIEW 3: Horizontal Lockup (Light and Dark) -->
+  <!-- View 3a: Horizontal Lockup Light -->
+  <g transform="translate(60, 430)">
+    <rect width="1080" height="180" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" />
+    <text x="32" y="38" font-size="12" font-weight="700" fill="#64748B" letter-spacing="0.08em" text-transform="uppercase">3a. Horizontal Lockup — Light</text>
+    <g transform="translate(360, 60)">
+      <!-- Mark (height 52px) -->
+      <g transform="scale(0.85)">
+        <rect x="10" y="8" width="12" height="48" rx="2" fill="#0B0B0D" />
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M22 8H39C47.2843 8 54 14.7157 54 23C54 31.2843 47.2843 38 39 38H22V8ZM27 23.5L33.5 30L46 17.5L43 14.5L33.5 24L30 20.5L27 23.5Z" fill="#5B6CFF" />
+      </g>
+      <!-- Wordmark: PatchProof -->
+      <text x="64" y="39" font-size="40" font-weight="600" fill="#0B0B0D" letter-spacing="-0.04em">PatchProof</text>
+    </g>
+    <text x="540" y="152" text-anchor="middle" font-size="11" font-weight="500" fill="#94A3B8">Mark height aligned to cap height + ascender • Tight -0.04em tracking</text>
+  </g>
+
+  <!-- View 3b: Horizontal Lockup Dark -->
+  <g transform="translate(60, 630)">
+    <rect width="1080" height="180" rx="16" fill="#0B0B0D" stroke="#1E293B" stroke-width="1" />
+    <text x="32" y="38" font-size="12" font-weight="700" fill="#94A3B8" letter-spacing="0.08em" text-transform="uppercase">3b. Horizontal Lockup — Dark</text>
+    <g transform="translate(360, 60)">
+      <!-- Mark (height 52px) -->
+      <g transform="scale(0.85)">
+        <rect x="10" y="8" width="12" height="48" rx="2" fill="#FFFFFF" />
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M22 8H39C47.2843 8 54 14.7157 54 23C54 31.2843 47.2843 38 39 38H22V8ZM27 23.5L33.5 30L46 17.5L43 14.5L33.5 24L30 20.5L27 23.5Z" fill="#5B6CFF" />
+      </g>
+      <!-- Wordmark: PatchProof -->
+      <text x="64" y="39" font-size="40" font-weight="600" fill="#FFFFFF" letter-spacing="-0.04em">PatchProof</text>
+    </g>
+    <text x="540" y="152" text-anchor="middle" font-size="11" font-weight="500" fill="#64748B">Pure white wordmark on #0B0B0D surface</text>
+  </g>
+
+  <!-- VIEW 4: Single-Color Versions -->
+  <!-- View 4a: Single-Color Black on White -->
+  <g transform="translate(60, 830)">
+    <rect width="520" height="230" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" />
+    <text x="32" y="38" font-size="12" font-weight="700" fill="#64748B" letter-spacing="0.08em" text-transform="uppercase">4a. Single Color — Monochrome Black</text>
+    <g transform="translate(216, 75) scale(1.4)">
+      <rect x="10" y="8" width="12" height="48" rx="2" fill="#0B0B0D" />
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M22 8H39C47.2843 8 54 14.7157 54 23C54 31.2843 47.2843 38 39 38H22V8ZM27 23.5L33.5 30L46 17.5L43 14.5L33.5 24L30 20.5L27 23.5Z" fill="#0B0B0D" />
+    </g>
+    <text x="260" y="200" text-anchor="middle" font-size="11" font-weight="600" fill="#94A3B8">100% Solid Near-Black (#0B0B0D) for print &amp; engraving</text>
+  </g>
+
+  <!-- View 4b: Single-Color White on Black -->
+  <g transform="translate(620, 830)">
+    <rect width="520" height="230" rx="16" fill="#0B0B0D" stroke="#1E293B" stroke-width="1" />
+    <text x="32" y="38" font-size="12" font-weight="700" fill="#94A3B8" letter-spacing="0.08em" text-transform="uppercase">4b. Single Color — Monochrome White</text>
+    <g transform="translate(216, 75) scale(1.4)">
+      <rect x="10" y="8" width="12" height="48" rx="2" fill="#FFFFFF" />
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M22 8H39C47.2843 8 54 14.7157 54 23C54 31.2843 47.2843 38 39 38H22V8ZM27 23.5L33.5 30L46 17.5L43 14.5L33.5 24L30 20.5L27 23.5Z" fill="#FFFFFF" />
+    </g>
+    <text x="260" y="200" text-anchor="middle" font-size="11" font-weight="600" fill="#64748B">100% Solid White (#FFFFFF) for dark terminal &amp; silkscreen</text>
+  </g>
+
+  <!-- VIEW 5: Favicon Verification Across Scales (256px, 64px, 32px, 16px) -->
+  <g transform="translate(60, 1080)">
+    <rect width="1080" height="390" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" />
+    <text x="32" y="38" font-size="12" font-weight="700" fill="#64748B" letter-spacing="0.08em" text-transform="uppercase">5. Favicon System &amp; Legibility Verification at Scale</text>
+    
+    <!-- 256px Tile -->
+    <g transform="translate(50, 70)">
+      <rect width="256" height="256" rx="56" fill="#5B6CFF" />
+      <g transform="translate(32, 32) scale(6)">
+        <rect x="6" y="6" width="5" height="20" rx="1" fill="#FFFFFF"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M11 6H19C22.866 6 26 9.134 26 13C26 16.866 22.866 20 19 20H11V6ZM13.5 13.5L16.5 16.5L22.5 10.5L21 9L16.5 13.5L15 12L13.5 13.5Z" fill="#FFFFFF"/>
+      </g>
+      <text x="128" y="280" text-anchor="middle" font-size="12" font-weight="700" fill="#0B0B0D">256 × 256 px</text>
+      <text x="128" y="298" text-anchor="middle" font-size="11" font-weight="500" fill="#94A3B8">App Store / PWA splash</text>
+    </g>
+
+    <!-- 64px Tile -->
+    <g transform="translate(390, 120)">
+      <rect width="96" height="96" rx="20" fill="#5B6CFF" />
+      <g transform="translate(16, 16) scale(2)">
+        <rect x="6" y="6" width="5" height="20" rx="1" fill="#FFFFFF"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M11 6H19C22.866 6 26 9.134 26 13C26 16.866 22.866 20 19 20H11V6ZM13.5 13.5L16.5 16.5L22.5 10.5L21 9L16.5 13.5L15 12L13.5 13.5Z" fill="#FFFFFF"/>
+      </g>
+      <text x="48" y="125" text-anchor="middle" font-size="12" font-weight="700" fill="#0B0B0D">64 × 64 px</text>
+      <text x="48" y="142" text-anchor="middle" font-size="11" font-weight="500" fill="#94A3B8">Retina browser</text>
+    </g>
+
+    <!-- 32px Tile -->
+    <g transform="translate(560, 140)">
+      <rect width="64" height="64" rx="14" fill="#5B6CFF" />
+      <g transform="translate(16, 16) scale(1)">
+        <rect x="6" y="6" width="5" height="20" rx="1" fill="#FFFFFF"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M11 6H19C22.866 6 26 9.134 26 13C26 16.866 22.866 20 19 20H11V6ZM13.5 13.5L16.5 16.5L22.5 10.5L21 9L16.5 13.5L15 12L13.5 13.5Z" fill="#FFFFFF"/>
+      </g>
+      <text x="32" y="90" text-anchor="middle" font-size="12" font-weight="700" fill="#0B0B0D">32 × 32 px</text>
+      <text x="32" y="107" text-anchor="middle" font-size="11" font-weight="500" fill="#94A3B8">Standard tab</text>
+    </g>
+
+    <!-- 16px Tile (Checked for 100% legibility) -->
+    <g transform="translate(710, 152)">
+      <rect width="40" height="40" rx="9" fill="#5B6CFF" />
+      <g transform="translate(12, 12) scale(0.5)">
+        <rect x="6" y="6" width="5" height="20" rx="1" fill="#FFFFFF"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M11 6H19C22.866 6 26 9.134 26 13C26 16.866 22.866 20 19 20H11V6ZM13.5 13.5L16.5 16.5L22.5 10.5L21 9L16.5 13.5L15 12L13.5 13.5Z" fill="#FFFFFF"/>
+      </g>
+      <text x="20" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#0B0B0D">16 × 16 px</text>
+      <text x="20" y="85" text-anchor="middle" font-size="11" font-weight="500" fill="#94A3B8">Dense bookmarks</text>
+    </g>
+
+    <!-- Transparent Glyphs at 32px & 16px -->
+    <g transform="translate(860, 130)">
+      <rect width="160" height="130" rx="12" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="4 4" />
+      <text x="80" y="24" text-anchor="middle" font-size="10" font-weight="700" fill="#64748B" letter-spacing="0.05em">TRANSPARENT</text>
+      <g transform="translate(30, 40)">
+        <!-- 32px transparent glyph in #5B6CFF -->
+        <rect x="6" y="6" width="5" height="20" rx="1" fill="#5B6CFF"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M11 6H19C22.866 6 26 9.134 26 13C26 16.866 22.866 20 19 20H11V6ZM13.5 13.5L16.5 16.5L22.5 10.5L21 9L16.5 13.5L15 12L13.5 13.5Z" fill="#5B6CFF"/>
+      </g>
+      <g transform="translate(95, 48) scale(0.5)">
+        <!-- 16px transparent glyph in #5B6CFF -->
+        <rect x="6" y="6" width="5" height="20" rx="1" fill="#5B6CFF"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M11 6H19C22.866 6 26 9.134 26 13C26 16.866 22.866 20 19 20H11V6ZM13.5 13.5L16.5 16.5L22.5 10.5L21 9L16.5 13.5L15 12L13.5 13.5Z" fill="#5B6CFF"/>
+      </g>
+      <text x="80" y="110" text-anchor="middle" font-size="11" font-weight="500" fill="#94A3B8">32px &amp; 16px glyphs</text>
+    </g>
+  </g>
+</svg>

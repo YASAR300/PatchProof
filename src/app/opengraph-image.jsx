@@ -34,7 +34,7 @@ export default async function Image() {
               width: 52,
               height: 52,
               borderRadius: 14,
-              backgroundColor: "#0071e3",
+              backgroundColor: "#2563EB",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -42,17 +42,14 @@ export default async function Image() {
             }}
           >
             <svg
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
+              width="36"
+              height="36"
+              viewBox="0 0 64 64"
               fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
             >
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              <path d="m9 12 2 2 4-4" />
+              <path d="M32 6 L54 14 V30 C54 44 44 54 32 58 C20 54 10 44 10 30 V14 Z" fill="#FFFFFF" />
+              <path d="M32 12 L48 18 V28 C48 39 40 47 32 51 C24 47 16 39 16 28 V18 Z" fill="#60A5FA" />
+              <path d="M24 32 L30 38 L42 24" stroke="#2563EB" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>

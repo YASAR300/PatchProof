@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="icon-title">
+  <title id="icon-title">PatchProof App Icon</title>
+  <style>
+    .bg { fill: #2563EB; }
+    .mark-primary { fill: #FFFFFF; }
+    .mark-accent { fill: #60A5FA; }
+    .check-cut { stroke: #2563EB; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0B0F19; }
+      .mark-primary { fill: #FFFFFF; }
+      .mark-accent { fill: #38BDF8; }
+      .check-cut { stroke: #0B0F19; }
+    }
+  </style>
+  <rect x="0" y="0" width="64" height="64" rx="14" class="bg"/>
+  <path d="M32 10 L49 16 V29 C49 40 41 49 32 53 C23 49 15 40 15 29 V16 Z" class="mark-primary"/>
+  <path d="M32 15 L44 19 V28 C44 37 38 43 32 47 C26 43 20 37 20 28 V19 Z" class="mark-accent"/>
+  <path d="M25 31 L30 36 L39 25" class="check-cut" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

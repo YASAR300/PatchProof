@@ -32,3 +32,14 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Demo target repo data
+/.data/
+.data
+
+# Scratch, testing scripts, and checking screenshots
+/scratch/
+scratch/
+scratch_*.mjs
+*.png
+

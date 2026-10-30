@@ -89,14 +89,14 @@ export function LoginForm({ hasGithubAuth }) {
         <h1 className="text-2xl font-semibold tracking-tight text-[#1d1d1f]">
           Welcome back
         </h1>
-        <p className="text-xs text-[#86868b] leading-relaxed">
+        <p className="text-xs text-[#334155] leading-relaxed">
           Sign in to your PatchProof security workspace
         </p>
       </div>
 
       {serverError && (
-        <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-rose-700 flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+        <div className="mb-5 p-3 rounded-lg bg-surface-raised border border-border text-xs text-text flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
           <span>{serverError}</span>
         </div>
       )}
@@ -135,12 +135,14 @@ export function LoginForm({ hasGithubAuth }) {
           <Button
             type="submit"
             variant="primary"
-            className="w-full h-10 rounded-xl bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-semibold shadow-sm active:scale-[0.99] transition-all"
+            size="lg"
+            className="w-full"
             loading={isLoading}
             disabled={isGithubLoading}
+            icon={<ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />}
+            iconPosition="right"
           >
-            <span>Sign in</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            Sign in
           </Button>
         </div>
       </form>

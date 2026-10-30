@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="64" viewBox="0 0 320 64" fill="none">
+  <title>PatchProof Full Name Logo Dark</title>
+  <!-- Mark on dark -->
+  <g transform="translate(8, 8) scale(0.75)">
+    <path d="M12 12C12 12 28 8 30 8V56C25 53 12 43 12 28V12Z" fill="#FFFFFF"/>
+    <path d="M52 12C52 12 36 8 34 8V56C39 53 52 43 52 28V12Z" fill="#5B6CFF"/>
+    <rect x="26" y="16" width="12" height="3" rx="1.5" fill="#0B0B0D"/>
+    <rect x="26" y="26" width="12" height="3" rx="1.5" fill="#0B0B0D"/>
+    <rect x="26" y="36" width="12" height="3" rx="1.5" fill="#0B0B0D"/>
+    <path d="M22 30L29 37L44 20" stroke="#0B0B0D" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- Full Name Typography: PatchProof in White and Indigo -->
+  <text x="66" y="42" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Geist', 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="700" letter-spacing="-0.04em">
+    <tspan fill="#FFFFFF">Patch</tspan><tspan fill="#5B6CFF">Proof</tspan>
+  </text>
+</svg>

@@ -1,0 +1,66 @@
+{
+  "repository": "demo-target",
+  "defaultBranch": "main",
+  "language": "Python",
+  "regressionCommand": "python -m unittest discover tests",
+  "reproducerCommand": "python security/reproducers/sqli_find_user.py",
+  "reproducerId": "pp-repro-sqli-01",
+  "reproducerPath": "security/reproducers/sqli_find_user.py",
+  "tags": [
+    {
+      "name": "baseline",
+      "sha": "9d13f9f57a87a5c735034d07b0d0acf656bf737e",
+      "description": "Vulnerable baseline: string concatenation in SQL query",
+      "expectedOutcome": {
+        "reproduced": true,
+        "regressionPassed": true,
+        "reproducerExitCode": 0,
+        "regressionExitCode": 0
+      }
+    },
+    {
+      "name": "fix-good",
+      "sha": "da17102a9993cc5b68b8349ff32177078e6c8505",
+      "description": "Clean fix: parameterized queries prevent injection without regressions",
+      "expectedOutcome": {
+        "reproduced": false,
+        "regressionPassed": true,
+        "reproducerExitCode": 0,
+        "regressionExitCode": 0
+      }
+    },
+    {
+      "name": "fix-incomplete",
+      "sha": "1d68f9b50bc3e7a468af03d78e51b40db19b6dee",
+      "description": "Incomplete fix: naive uppercase-only blacklist bypassable with lowercase payload",
+      "expectedOutcome": {
+        "reproduced": true,
+        "regressionPassed": true,
+        "reproducerExitCode": 0,
+        "regressionExitCode": 0
+      }
+    },
+    {
+      "name": "fix-regression",
+      "sha": "0ffad86038f26a1a67bdb48ba62a980c882314fd",
+      "description": "Regression fix: blocks SQLi but incorrectly rejects apostrophes, breaking O'Brien",
+      "expectedOutcome": {
+        "reproduced": false,
+        "regressionPassed": false,
+        "reproducerExitCode": 0,
+        "regressionExitCode": 1
+      }
+    },
+    {
+      "name": "broken-build",
+      "sha": "bf272104db3b1e9d38d4f4a4ad6a6198c7d6f1f4",
+      "description": "Broken build: syntax error in users module prevents execution",
+      "expectedOutcome": {
+        "reproduced": false,
+        "regressionPassed": false,
+        "reproducerExitCode": 1,
+        "regressionExitCode": 1
+      }
+    }
+  ]
+}

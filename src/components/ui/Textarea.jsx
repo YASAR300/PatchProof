@@ -38,8 +38,8 @@ export const Textarea = forwardRef(function Textarea(
         className={cn(
           "w-full rounded-md border border-border bg-surface p-2.5 text-xs text-text placeholder:text-text-muted/60 transition-colors duration-150 outline-none resize-y",
           mono && "font-mono text-2xs",
-          "focus:border-accent focus:ring-1 focus:ring-accent/40",
-          error && "border-danger focus:border-danger focus:ring-danger/30",
+          "focus:border-accent hover:border-border-strong",
+          error && "border-state-danger-border text-state-danger-fg",
           disabled && "opacity-50 cursor-not-allowed bg-surface-raised",
           className
         )}

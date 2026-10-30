@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="logo-mark-title">
+  <title id="logo-mark-title">PatchProof Security Verification Mark</title>
+  <!-- Shield Upper Facet Panel (Main Body) -->
+  <path d="M32 6 L54 14 V30 C54 44 44 54 32 58 C20 54 10 44 10 30 V14 Z" fill="currentColor"/>
+  <!-- Accent Inset Stitch (Brand Blue Security Detail) -->
+  <path d="M32 12 L48 18 V28 C48 39 40 47 32 51 C24 47 16 39 16 28 V18 Z" fill="#2563EB"/>
+  <!-- Centered Precision Verification Checkmark Cutout -->
+  <path d="M24 32 L30 38 L42 24" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Top Center Alignment Notch -->
+  <circle cx="32" cy="18" r="2.5" fill="#FFFFFF"/>
+</svg>

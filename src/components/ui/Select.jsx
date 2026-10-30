@@ -26,7 +26,7 @@ export const Select = forwardRef(function Select(
       {label && (
         <label
           htmlFor={selectId}
-          className="block text-2xs font-medium text-text-muted select-none"
+          className="block text-[11px] font-medium text-text-tertiary select-none"
         >
           {label}
         </label>
@@ -37,9 +37,9 @@ export const Select = forwardRef(function Select(
           id={selectId}
           disabled={disabled}
           className={cn(
-            "w-full h-8.5 appearance-none rounded-md border border-border bg-surface pl-3 pr-8 text-xs text-text transition-colors duration-150 outline-none cursor-pointer",
-            "focus:border-accent focus:ring-1 focus:ring-accent/40",
-            error && "border-danger focus:border-danger focus:ring-danger/30",
+            "w-full h-8 appearance-none rounded-[6px] border border-border bg-surface pl-2.5 pr-8 text-xs text-text transition-colors outline-none cursor-pointer",
+            "focus:border-accent hover:border-border-strong",
+            error && "border-state-danger-border text-state-danger-fg",
             disabled && "opacity-50 cursor-not-allowed bg-surface-raised",
             className
           )}
@@ -53,14 +53,18 @@ export const Select = forwardRef(function Select(
               ))
             : children}
         </select>
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-text-tertiary">
           <ChevronDown className="w-3.5 h-3.5" />
         </div>
       </div>
       {error ? (
-        <p className="text-2xs text-danger font-medium">{error}</p>
+        <p className="text-[11px] text-state-danger-fg leading-tight">
+          {error}
+        </p>
       ) : helperText ? (
-        <p className="text-2xs text-text-muted">{helperText}</p>
+        <p className="text-[11px] text-text-tertiary leading-tight">
+          {helperText}
+        </p>
       ) : null}
     </div>
   );

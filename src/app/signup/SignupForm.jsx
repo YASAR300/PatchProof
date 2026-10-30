@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { z } from "zod";
 import { ShieldCheck, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -17,8 +17,10 @@ const signupSchema = z.object({
 
 export function SignupForm({ hasGithubAuth }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialEmail = searchParams?.get("email") || "";
 
-  const [formData, setFormData] = useState({ name: "", email: "", password: "" });
+  const [formData, setFormData] = useState({ name: "", email: initialEmail, password: "" });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isGithubLoading, setIsGithubLoading] = useState(false);
@@ -102,14 +104,14 @@ export function SignupForm({ hasGithubAuth }) {
         <h1 className="text-2xl font-semibold tracking-tight text-[#1d1d1f]">
           Create your account
         </h1>
-        <p className="text-xs text-[#86868b] leading-relaxed">
+        <p className="text-xs text-[#334155] leading-relaxed">
           Start verifying vulnerabilities with executable proof
         </p>
       </div>
 
       {serverError && (
-        <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-rose-700 flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+        <div className="mb-5 p-3 rounded-lg bg-surface-raised border border-border text-xs text-text flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
           <span>{serverError}</span>
         </div>
       )}
@@ -162,12 +164,14 @@ export function SignupForm({ hasGithubAuth }) {
           <Button
             type="submit"
             variant="primary"
-            className="w-full h-10 rounded-xl bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-semibold shadow-sm active:scale-[0.99] transition-all"
+            size="lg"
+            className="w-full"
             loading={isLoading}
             disabled={isGithubLoading}
+            icon={<ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />}
+            iconPosition="right"
           >
-            <span>Create account</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            Create account
           </Button>
         </div>
       </form>
