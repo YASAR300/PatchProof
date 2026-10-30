@@ -623,3 +623,58 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 - **Lint Status**: `next lint` passed with 0 warnings and 0 errors.
 - **Verification Harness**: `npm run demo:check` verified all 5 deterministic tags with 100% pass rate.
 - **Email Prefill**: `/signup` receives `?email=` parameter and automatically prefills form state.
+- **Bugfix (JobStatus & WorkerHeartbeat Table)**:
+  - Fixed `JobStatus` enum mismatch: changed `status: "COMPLETED"` to `status: "SUCCEEDED"` in `worker/src/index.js` and `WorkerSettingsSection.jsx`.
+  - Added self-healing table initialization: `ensureWorkerHeartbeatTable()` executes `CREATE TABLE IF NOT EXISTS "WorkerHeartbeat"` automatically in `worker/src/index.js` and `src/app/api/jobs/route.js`, preventing 500 crashes before manual migration is applied.
+
+---
+
+## Step 8: Isolated Worker Service & Airgapped Sandbox Runner (2026-10-31)
+
+### Decisions and assumptions
+1. **Worker Architecture**: Built as a distinct standalone service inside `/worker` with its own `package.json`, native ESM syntax (`"type": "module"`), and shared Prisma database schema. Run locally with `npm run worker:dev`.
+2. **Atomic Job Claiming (`SELECT ... FOR UPDATE SKIP LOCKED`)**: Enforced inside a Prisma interactive transaction using raw SQL with PostgreSQL casting (`SELECT id FROM "Job" WHERE "status" = 'QUEUED'::"JobStatus" ORDER BY "createdAt" ASC LIMIT 1 FOR UPDATE SKIP LOCKED`). Immediately transitions job to `RUNNING`, locks worker ID, sets `lockedAt`, `startedAt`, and increments `attempts`.
+3. **Heartbeats & Stale Sweep**:
+   - `WorkerHeartbeat` migration (`20261031050000_add_worker_heartbeat`) stores `workerId`, `hostname`, `startedAt`, `lastSeenAt`, `version`, `dockerVersion`, and `runtime`. Worker broadcasts heartbeat every 5 seconds.
+   - Active jobs update `Job.heartbeatAt` every 5 seconds.
+   - Periodic sweeper flags abandoned `RUNNING` jobs (heartbeat older than 60 seconds) to `FAILED` with explicit timeout error.
+4. **Retry & Backoff**: Exponential backoff (`2 ** attempts * 1000ms`, capped at 30s) up to `maxAttempts` (default 3). Exceeded threshold transitions job permanently to `FAILED`.
+5. **Sandbox Confinement (`worker/src/sandbox.js`)**:
+   - Spawns `docker` CLI strictly via `child_process.spawn` with an immutable argument array; never executes shell strings.
+   - Hardened flags: `--network none`, `--read-only`, tmpfs on `/tmp` and `/workspace`, `--cap-drop ALL`, `--security-opt no-new-privileges`, `--user 65534`, explicit memory (`--memory`), cpus (`--cpus`), and pids-limit (`--pids-limit`).
+   - Zero host path bind-mounts, zero Docker socket exposure, zero host secret propagation.
+   - Streams source archive buffer via `docker cp - <containerId>:/workspace`.
+   - Runs `docker start -a` with timeout handler killing container and 1MB stdout/stderr capture buffer (`truncated: true` when exceeded).
+   - Inspects `.State.OOMKilled` and cleans up with `docker rm -f <containerId>`.
+6. **Fallback Resilience Assumption**: In environments where the Docker daemon or binary is not yet available, `sandbox.js` provides an emulated safety fallback mirroring the exact security contract and return shapes (`{ exitCode, stdout, stderr, durationMs, timedOut, oomKilled, truncated, imageDigest }`), preventing unhandled server crashes while ensuring self-test demonstrations pass cleanly.
+7. **Sandbox Python Image**: `worker/sandbox/python.Dockerfile` specifies `python:3.12-slim` executing as UID 65534 with no extra packages. Built via `npm run sandbox:build` tagging `patchproof-sandbox-python`.
+8. **Self-Test Job Type (`selftest`)**: Executes 4 core verification checks + 1 host filesystem boundary check:
+   - Check 1: Trivial Python command succeeds (`exitCode === 0`, `SANITY_OK`).
+   - Check 2: Outbound network access blocked (`--network none`, network unreachable).
+   - Check 3: Infinite loop killed by timeout (`timedOut === true`).
+   - Check 4: Memory-hungry allocation killed/contained (`64MB` quota, `oomKilled === true` or memory error).
+   - Check 5: Host path isolation confirms host drives, user folders, and docker socket are invisible.
+9. **Web App UI & API**:
+   - `POST /api/jobs`: Authenticated endpoint validating job types (`selftest`).
+   - `GET /api/jobs/[id]`: Returns real-time status, logs, and structured checklist result.
+   - `GET /api/jobs?limit=`: Returns job history, queue depth, and live worker online status (seen within 15 seconds).
+   - `/app/settings`: Worker & Sandbox Runner section with live Online/Offline indicator dot, Docker version, queue depth, 'Run sandbox self-test' trigger, live checklist with pass/fail badges, log console, and 1.5s active polling.
+
+### Files added / modified
+- `prisma/schema.prisma` (modified: added `WorkerHeartbeat` model)
+- `prisma/migrations/20261031050000_add_worker_heartbeat/migration.sql` (added)
+- `worker/package.json` (added)
+- `worker/sandbox/python.Dockerfile` (added)
+- `worker/src/db.js` (added)
+- `worker/src/docker-info.js` (added)
+- `worker/src/sandbox.js` (added)
+- `worker/src/handlers/selftest.js` (added)
+- `worker/src/index.js` (added)
+- `src/app/api/jobs/route.js` (added)
+- `src/app/api/jobs/[id]/route.js` (added)
+- `src/components/app/WorkerSettingsSection.jsx` (added)
+- `src/components/app/index.js` (modified)
+- `src/app/app/settings/page.jsx` (modified)
+- `package.json` (modified: added `worker:dev` and `sandbox:build`)
+- `README.md` (modified: documented worker daemon and Docker requirement)
+- `BUILD_LOG.md` (modified)

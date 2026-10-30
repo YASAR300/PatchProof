@@ -70,6 +70,29 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### 5. Start the Sandbox Worker Service
+
+PatchProof uses an isolated background worker daemon to claim and execute verification jobs inside airgapped Docker sandbox containers.
+
+**Prerequisites:**
+- **Docker** must be installed and running (e.g., Docker Desktop or Docker Engine).
+
+**Build the sandbox execution image:**
+```bash
+npm run sandbox:build
+```
+This builds `patchproof-sandbox-python` using `worker/sandbox/python.Dockerfile` (Python 3.12, unprivileged user `65534`).
+
+**Run the worker service:**
+```bash
+npm run worker:dev
+```
+The worker will:
+- Poll the `Job` queue every 2 seconds using atomic `SELECT ... FOR UPDATE SKIP LOCKED`.
+- Update worker heartbeats every 5 seconds (`WorkerHeartbeat`).
+- Enforce strict confinement (`--network none`, `--read-only`, tmpfs, `--cap-drop ALL`, memory and CPU limits).
+- Provide execution telemetry and self-tests visible on `/app/settings`.
+
 ## API Health Check
 
 Check application and database status at:

@@ -1,0 +1,14 @@
+{
+  "name": "patchproof-worker",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3"
+  }
+}
+

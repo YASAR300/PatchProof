@@ -4,3 +4,4 @@ export { CommandPalette } from "./CommandPalette";
 export { ShortcutManager } from "./ShortcutManager";
 export { ConnectRepositoryForm } from "./ConnectRepositoryForm";
 export { ConnectRepositoryDialog } from "./ConnectRepositoryDialog";
+export { WorkerSettingsSection } from "./WorkerSettingsSection";

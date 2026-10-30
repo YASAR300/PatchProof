@@ -1,9 +1,10 @@
 import React from "react";
-import { Settings, Save, Shield, Sliders, Bell, Key } from "lucide-react";
+import { Settings, Save, Shield, Sliders, Bell, Key, Server } from "lucide-react";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { WorkerSettingsSection } from "@/components/app/WorkerSettingsSection";
 
 export const metadata = {
   title: "Settings",
@@ -31,6 +32,13 @@ export default function SettingsPage() {
             <Sliders className="w-3.5 h-3.5 text-text" />
             <span>General</span>
           </button>
+          <a
+            href="#worker-section"
+            className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left"
+          >
+            <Server className="w-3.5 h-3.5 text-text-tertiary" />
+            <span>Worker & Runner</span>
+          </a>
           <button className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left">
             <Shield className="w-3.5 h-3.5 text-text-tertiary" />
             <span>Execution limits</span>
@@ -47,6 +55,11 @@ export default function SettingsPage() {
 
         {/* Sections in Panels */}
         <div className="flex-1 w-full space-y-4">
+          {/* Worker Service & Sandbox Runner Section */}
+          <div id="worker-section">
+            <WorkerSettingsSection />
+          </div>
+
           <Card>
             <CardHeader>
               <CardTitle>Workspace details</CardTitle>

@@ -391,3 +391,18 @@ model AuditEvent {
   @@index([actorId, createdAt])
   @@index([entityType, entityId])
 }
+
+model WorkerHeartbeat {
+  id            String    @id @default(cuid())
+  workerId      String    @unique
+  hostname      String
+  startedAt     DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  version       String
+  dockerVersion String?
+  runtime       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([lastSeenAt])
+}

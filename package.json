@@ -9,6 +9,8 @@
     "lint": "next lint",
     "demo:build": "node scripts/build-demo-repo.mjs",
     "demo:check": "node scripts/verify-demo-repo.mjs",
+    "worker:dev": "node worker/src/index.js",
+    "sandbox:build": "docker build -t patchproof-sandbox-python -f worker/sandbox/python.Dockerfile worker/sandbox",
     "db:migrate": "prisma migrate dev",
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
