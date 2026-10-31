@@ -1,17 +1,21 @@
 import React from "react";
-import { Settings, Save, Shield, Sliders, Bell, Key, Server } from "lucide-react";
+import { Settings, Save, Shield, Sliders, Bell, Key, Server, GitBranch } from "lucide-react";
+import { getSessionUser } from "@/auth";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { WorkerSettingsSection } from "@/components/app/WorkerSettingsSection";
+import { GitHubIntegrationSection } from "@/components/app/GitHubIntegrationSection";
 
 export const metadata = {
   title: "Settings",
   description: "Workspace configuration and execution boundaries",
 };
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const user = await getSessionUser();
+
   return (
     <div className="max-w-[1200px] mx-auto w-full space-y-5 font-sans">
       <PageHeader
@@ -32,6 +36,13 @@ export default function SettingsPage() {
             <Sliders className="w-3.5 h-3.5 text-text" />
             <span>General</span>
           </button>
+          <a
+            href="#github-section"
+            className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left"
+          >
+            <GitBranch className="w-3.5 h-3.5 text-text-tertiary" />
+            <span>GitHub & Git</span>
+          </a>
           <a
             href="#worker-section"
             className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left"
@@ -55,6 +66,11 @@ export default function SettingsPage() {
 
         {/* Sections in Panels */}
         <div className="flex-1 w-full space-y-4">
+          {/* GitHub Integration Card */}
+          <div id="github-section">
+            <GitHubIntegrationSection user={user} />
+          </div>
+
           {/* Worker Service & Sandbox Runner Section */}
           <div id="worker-section">
             <WorkerSettingsSection />

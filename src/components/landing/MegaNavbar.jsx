@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
   ShieldCheck,
   Search,
@@ -20,11 +21,13 @@ import {
   Menu,
   X,
   ArrowRight,
+  LayoutDashboard,
 } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/Button";
 
 export function MegaNavbar() {
+  const { data: session, status } = useSession();
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileAccordions, setMobileAccordions] = useState({
@@ -499,18 +502,30 @@ export function MegaNavbar() {
         </div>
 
         {/* Right: CTA Actions */}
-        <div className="hidden lg:flex items-center gap-3">
-          <Link href="/login">
-            <Button variant="secondary" size="md">
-              Sign in
-            </Button>
-          </Link>
-          <Link href="/signup">
-            <Button variant="primary" size="md">
-              Start verifying
-            </Button>
-          </Link>
-        </div>
+        {status === "authenticated" ? (
+          <div className="hidden lg:flex items-center gap-3">
+            <Link href="/app">
+              <Button variant="primary" size="md" className="gap-2 shadow-sm font-semibold">
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Dashboard</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="hidden lg:flex items-center gap-3">
+            <Link href="/login">
+              <Button variant="secondary" size="md">
+                Sign in
+              </Button>
+            </Link>
+            <Link href="/signup">
+              <Button variant="primary" size="md">
+                Start verifying
+              </Button>
+            </Link>
+          </div>
+        )}
 
         {/* Mobile Hamburger Button */}
         <button
@@ -715,18 +730,30 @@ export function MegaNavbar() {
           </div>
 
           {/* Bottom CTAs in Mobile Sheet */}
-          <div className="pt-8 space-y-3">
-            <Link href="/signup" className="block w-full" onClick={() => setMobileMenuOpen(false)}>
-              <Button variant="primary" size="lg" className="w-full justify-center">
-                Start verifying
-              </Button>
-            </Link>
-            <Link href="/login" className="block w-full" onClick={() => setMobileMenuOpen(false)}>
-              <Button variant="secondary" size="lg" className="w-full justify-center">
-                Sign in
-              </Button>
-            </Link>
-          </div>
+          {status === "authenticated" ? (
+            <div className="pt-8 space-y-3">
+              <Link href="/app" className="block w-full" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="primary" size="lg" className="w-full justify-center gap-2 font-semibold">
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Go to Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="pt-8 space-y-3">
+              <Link href="/signup" className="block w-full" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="primary" size="lg" className="w-full justify-center">
+                  Start verifying
+                </Button>
+              </Link>
+              <Link href="/login" className="block w-full" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="secondary" size="lg" className="w-full justify-center">
+                  Sign in
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </header>

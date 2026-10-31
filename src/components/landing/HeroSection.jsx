@@ -3,13 +3,15 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ShieldCheck, CheckCircle2, ShieldAlert } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { ArrowRight, ShieldCheck, CheckCircle2, ShieldAlert, LayoutDashboard } from "lucide-react";
 import { FindingsScene } from "./scenes/FindingsScene";
 import { RunLogScene } from "./scenes/RunLogScene";
 import { PatchMatrixScene } from "./scenes/PatchMatrixScene";
 
 export function HeroSection() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [email, setEmail] = useState("");
 
   const handleSubmit = (e) => {
@@ -38,36 +40,60 @@ export function HeroSection() {
             PatchProof reproduces the issue, tests your fix and keeps the evidence, on every pull request.
           </p>
 
-          {/* Inline Joined Email Pill CTA */}
-          <div className="flex flex-col items-center gap-3 w-full max-w-md pt-2">
-            <form
-              onSubmit={handleSubmit}
-              className="flex items-center w-full h-14 p-1.5 rounded-full bg-white border border-[#d8dbf8] shadow-md focus-within:ring-2 focus-within:ring-accent focus-within:border-accent transition-all"
-            >
-              <input
-                type="email"
-                placeholder="Enter your work email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                aria-label="Work email address"
-                className="flex-1 h-full px-5 rounded-full bg-transparent text-[15px] text-[#0b0b0c] placeholder:text-text-tertiary focus:outline-none"
-              />
-              <button
-                type="submit"
-                className="h-11 px-6 rounded-full text-[14px] font-semibold bg-accent hover:bg-accent-hover text-white shadow-xs transition-colors whitespace-nowrap"
+          {/* Action Area: Dashboard buttons when logged in, or Email Signup when logged out */}
+          {status === "authenticated" ? (
+            <div className="flex flex-col items-center gap-3.5 w-full max-w-md pt-2">
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+                <Link
+                  href="/app"
+                  className="flex-1 w-full h-13 px-7 rounded-full text-[15px] font-semibold bg-accent hover:bg-accent-hover text-white shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2.5 group"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Go to Dashboard</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+                <Link
+                  href="/app/repositories"
+                  className="h-13 px-6 rounded-full text-[14px] font-semibold bg-white hover:bg-gray-50 text-[#0b0b0c] border border-[#d8dbf8] shadow-xs transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+                >
+                  <span>Repositories</span>
+                </Link>
+              </div>
+              <p className="text-[13px] text-text-tertiary">
+                Signed in as <span className="font-semibold text-text">{session?.user?.name || session?.user?.email}</span>
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 w-full max-w-md pt-2">
+              <form
+                onSubmit={handleSubmit}
+                className="flex items-center w-full h-14 p-1.5 rounded-full bg-white border border-[#d8dbf8] shadow-md focus-within:ring-2 focus-within:ring-accent focus-within:border-accent transition-all"
               >
-                Start verifying
-              </button>
-            </form>
+                <input
+                  type="email"
+                  placeholder="Enter your work email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  aria-label="Work email address"
+                  className="flex-1 h-full px-5 rounded-full bg-transparent text-[15px] text-[#0b0b0c] placeholder:text-text-tertiary focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="h-11 px-6 rounded-full text-[14px] font-semibold bg-accent hover:bg-accent-hover text-white shadow-xs transition-colors whitespace-nowrap"
+                >
+                  Start verifying
+                </button>
+              </form>
 
-            <a
-              href="#workflow"
-              className="text-[14px] font-semibold text-accent hover:underline flex items-center gap-1.5 transition-colors pt-1"
-            >
-              See how it works <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-            </a>
-          </div>
+              <a
+                href="#workflow"
+                className="text-[14px] font-semibold text-accent hover:underline flex items-center gap-1.5 transition-colors pt-1"
+              >
+                See how it works <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Large Composite Product Illustration on Soft Tinted Wash */}

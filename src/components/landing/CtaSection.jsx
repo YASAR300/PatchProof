@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { ArrowRight, Sparkles, LayoutDashboard } from "lucide-react";
 
 export function CtaSection() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [email, setEmail] = useState("");
 
   const handleSubmit = (e) => {
@@ -31,29 +34,42 @@ export function CtaSection() {
             Stop arguing over false positives. Spin up deterministic reproducers and verify security patches with verifiable proof.
           </p>
 
-          {/* Joined Email Pill CTA */}
-          <div className="w-full max-w-md pt-2">
-            <form
-              onSubmit={handleSubmit}
-              className="flex items-center w-full h-14 p-1.5 rounded-full bg-white border border-[#d8dbf8] shadow-md focus-within:ring-2 focus-within:ring-accent focus-within:border-accent transition-all"
-            >
-              <input
-                type="email"
-                placeholder="Enter your work email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                aria-label="Work email address for early access"
-                className="flex-1 h-full px-5 rounded-full bg-transparent text-[15px] text-[#0b0b0c] placeholder:text-text-tertiary focus:outline-none"
-              />
-              <button
-                type="submit"
-                className="h-11 px-6 rounded-full text-[14px] font-semibold bg-accent hover:bg-accent-hover text-white shadow-xs transition-colors whitespace-nowrap"
+          {/* Joined Email Pill CTA or Dashboard CTA */}
+          {status === "authenticated" ? (
+            <div className="pt-3">
+              <Link
+                href="/app"
+                className="h-13 px-8 rounded-full text-[15px] font-semibold bg-accent hover:bg-accent-hover text-white shadow-md hover:shadow-lg transition-all inline-flex items-center gap-2.5 group"
               >
-                Start verifying
-              </button>
-            </form>
-          </div>
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Go to Dashboard</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            </div>
+          ) : (
+            <div className="w-full max-w-md pt-2">
+              <form
+                onSubmit={handleSubmit}
+                className="flex items-center w-full h-14 p-1.5 rounded-full bg-white border border-[#d8dbf8] shadow-md focus-within:ring-2 focus-within:ring-accent focus-within:border-accent transition-all"
+              >
+                <input
+                  type="email"
+                  placeholder="Enter your work email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  aria-label="Work email address for early access"
+                  className="flex-1 h-full px-5 rounded-full bg-transparent text-[15px] text-[#0b0b0c] placeholder:text-text-tertiary focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="h-11 px-6 rounded-full text-[14px] font-semibold bg-accent hover:bg-accent-hover text-white shadow-xs transition-colors whitespace-nowrap"
+                >
+                  Start verifying
+                </button>
+              </form>
+            </div>
+          )}
 
           <div className="text-[13px] text-text-tertiary font-medium">
             No credit card. Demo project included.
