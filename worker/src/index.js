@@ -1,5 +1,6 @@
 import os from "node:os";
 import process from "node:process";
+import http from "node:http";
 import { prisma } from "./db.js";
 import { getDockerVersion, getSandboxRuntime } from "./docker-info.js";
 import { handleSelfTest } from "./handlers/selftest.js";
@@ -259,6 +260,26 @@ heartbeatTimer = setInterval(sendHeartbeat, 5000);
 staleCheckTimer = setInterval(sweepStaleJobs, 15000);
 pollTimer = setInterval(pollLoop, 2000);
 
+// Lightweight health-check HTTP server for platforms like Render/Railway/Heroku
+const PORT = parseInt(process.env.PORT || process.env.WORKER_PORT || "10000", 10);
+const healthServer = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(
+    JSON.stringify({
+      status: "healthy",
+      service: "patchproof-worker",
+      version: WORKER_VERSION,
+      workerId,
+      uptimeSeconds: Math.floor((Date.now() - workerStartedAt.getTime()) / 1000),
+      activeJob: activeJob ? { id: activeJob.id, type: activeJob.type } : null,
+    })
+  );
+});
+
+healthServer.listen(PORT, "0.0.0.0", () => {
+  console.log(`[worker] Health check HTTP server listening on port ${PORT}`);
+});
+
 /**
  * Graceful termination handler
  * @param {string} signal
@@ -267,6 +288,14 @@ async function handleShutdown(signal) {
   if (isShuttingDown) return;
   isShuttingDown = true;
   console.log(`\n[worker] Received ${signal}. Initiating graceful shutdown...`);
+
+  if (healthServer) {
+    try {
+      healthServer.close();
+    } catch {
+      // ignore
+    }
+  }
 
   clearInterval(pollTimer);
   clearInterval(heartbeatTimer);

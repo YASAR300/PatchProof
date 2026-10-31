@@ -14,7 +14,7 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://patchproof.dev";
+const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://patchproof.dev";
 
 export const metadata = {
   metadataBase: new URL(baseUrl),
