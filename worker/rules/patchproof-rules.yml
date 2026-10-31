@@ -1,0 +1,111 @@
+rules:
+  - id: python.sqli.string-concatenation
+    languages: [python]
+    severity: ERROR
+    message: "Potential SQL injection via dynamic string formatting or concatenation into database query."
+    metadata:
+      cwe: "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')"
+      explanation: "Dynamically interpolating variables into SQL statements via f-strings, format(), or concatenation allows attackers to bypass query constraints and access or modify unauthorized data. Always use parameterized queries (e.g., cursor.execute('SELECT ... WHERE col = ?', (val,))) instead."
+    pattern-either:
+      - pattern: $CURSOR.execute(f"...", ...)
+      - pattern: $CURSOR.execute("..." % ..., ...)
+      - pattern: $CURSOR.execute("..." + ..., ...)
+      - pattern: |
+          $QUERY = f"..."
+          ...
+          $CURSOR.execute($QUERY, ...)
+      - pattern: |
+          $QUERY = "..." % ...
+          ...
+          $CURSOR.execute($QUERY, ...)
+      - pattern: |
+          $QUERY = "..." + ...
+          ...
+          $CURSOR.execute($QUERY, ...)
+      - pattern: f"SELECT ... FROM ... WHERE ... { ... } ..."
+      - pattern: f"SELECT ... WHERE ... { ... } ..."
+
+  - id: python.command-injection.os-system
+    languages: [python]
+    severity: ERROR
+    message: "Potential OS command injection via shell execution with dynamic parameters."
+    metadata:
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      explanation: "Invoking system shells with unvalidated inputs enables command chaining and arbitrary system command execution. Pass arguments as an explicit array with shell=False using subprocess.run()."
+    pattern-either:
+      - pattern: os.system(...)
+      - pattern: subprocess.Popen(..., shell=True, ...)
+      - pattern: subprocess.run(..., shell=True, ...)
+      - pattern: subprocess.call(..., shell=True, ...)
+      - pattern: subprocess.check_output(..., shell=True, ...)
+
+  - id: python.code-injection.eval-exec
+    languages: [python]
+    severity: ERROR
+    message: "Dynamic code execution via eval() or exec()."
+    metadata:
+      cwe: "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')"
+      explanation: "Dynamically evaluating untrusted code with eval() or exec() allows execution of arbitrary Python instructions in the current process. Use ast.literal_eval for safe literal parsing."
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+
+  - id: python.insecure-hash.md5-sha1
+    languages: [python]
+    severity: WARNING
+    message: "Use of weak cryptographic hash algorithm (MD5/SHA1)."
+    metadata:
+      cwe: "CWE-328: Use of Weak Hash"
+      explanation: "MD5 and SHA-1 suffer from proven practical collision attacks and must not be used for cryptographic integrity or credential hashing. Use SHA-256 for integrity or bcrypt/argon2 for password hashing."
+    pattern-either:
+      - pattern: hashlib.md5(...)
+      - pattern: hashlib.sha1(...)
+
+  - id: python.hardcoded-secret
+    languages: [python]
+    severity: ERROR
+    message: "Potential hard-coded credential or secret key in source file."
+    metadata:
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      explanation: "Committing sensitive credentials directly in source files risks credential exposure in version control history. Store secrets in environment variables or key management vaults."
+    pattern-either:
+      - pattern: $VAR = "=~/^[a-zA-Z0-9_\-]{24,}$/"
+        metavariable-regex:
+          metavariable: $VAR
+          regex: (?i).*(api_key|secret_key|private_key|auth_token|password).*
+
+  - id: javascript.code-injection.eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Use of eval() in JavaScript allows arbitrary script execution."
+    metadata:
+      cwe: "CWE-95: Improper Neutralization of Directives in Dynamically Evaluated Code ('Eval Injection')"
+      explanation: "Evaluating arbitrary strings as JavaScript bypasses browser or runtime isolation. Use JSON.parse() or typed property access instead."
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: window.eval(...)
+
+  - id: javascript.command-injection.child-process
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: "Potential OS command injection in child_process.exec."
+    metadata:
+      cwe: "CWE-78: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')"
+      explanation: "child_process.exec executes strings inside a system shell. Dynamic concatenation allows attackers to inject command separators. Use execFile or spawn with argument arrays."
+    pattern-either:
+      - pattern: child_process.exec($CMD + ..., ...)
+      - pattern: child_process.exec(`...${...}...`, ...)
+      - pattern: exec($CMD + ..., ...)
+      - pattern: exec(`...${...}...`, ...)
+
+  - id: javascript.xss.inner-html
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: "Direct assignment to innerHTML introduces Cross-Site Scripting (XSS)."
+    metadata:
+      cwe: "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      explanation: "Assigning unescaped strings directly to innerHTML allows execution of malicious script tags and event handlers. Use textContent or sanitize HTML with DOMPurify."
+    pattern-either:
+      - pattern: $EL.innerHTML = $VAL
+      - pattern: $EL.innerHTML += $VAL
+

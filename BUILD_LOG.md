@@ -678,3 +678,53 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 - `package.json` (modified: added `worker:dev` and `sandbox:build`)
 - `README.md` (modified: documented worker daemon and Docker requirement)
 - `BUILD_LOG.md` (modified)
+
+---
+
+## Step 9: Repository Security Scanner & Findings Workflow (2026-10-31)
+
+### Decisions and assumptions
+1. **Semgrep Integration**: Reuses the Semgrep static analysis engine via offline bundled rules rather than inventing a custom engine. Packaged in `worker/sandbox/semgrep.Dockerfile` (`patchproof-sandbox-semgrep`, built with `npm run semgrep:build`) with `--network none` runtime airgap.
+2. **Offline Rule Suite (`worker/rules/patchproof-rules.yml`)**:
+   - `python.sqli.string-concatenation`: SQL injection via string formatting, f-strings, or dynamic concatenation.
+   - `python.command-injection.os-system`: Shell execution with dynamic parameters (`os.system`, `subprocess` with `shell=True`).
+   - `python.code-injection.eval-exec`: Dynamic code execution with `eval` / `exec`.
+   - `python.insecure-hash.md5-sha1`: Weak hash algorithms for integrity or credentials.
+   - `python.hardcoded-secret`: Hardcoded API keys and authentication secrets.
+   - `javascript.code-injection.eval`: JavaScript dynamic code evaluation.
+   - `javascript.command-injection.child-process`: OS command injection via `child_process.exec`.
+   - `javascript.xss.inner-html`: Direct unescaped assignment to `innerHTML`.
+3. **Execution Fallback**: In addition to Docker container invocation (`patchproof-sandbox-semgrep`), `worker/src/scanner/semgrep-runner.js` provides an offline AST/regex matcher for the bundled rules, ensuring seamless scanning in environments where Docker is not yet running.
+4. **Source Code Ingestion**:
+   - Demo project: Exports target ref/tag from `.data/demo-target` using `git archive --format=tar <ref>`.
+   - GitHub projects: Performs a shallow clone (`git clone --depth 1`, `GIT_TERMINAL_PROMPT=0`, `--no-submodules`), enforces strict safety limits (max 200 MB, max 10,000 files), and cleans up the temporary directory in a `finally` block.
+5. **Stable Fingerprinting & Idempotency**:
+   - `fingerprint = sha256(ruleId + ':' + filePath + ':' + normalizedSnippet)`.
+   - Upserted on `@@unique([projectId, fingerprint])`. Rescanning the same commit or tag updates timestamps without creating duplicate findings.
+6. **Code Context Capture (`Finding.contextLines`)**:
+   - During scan, extracts 4 lines before and after the snippet with line numbers and `isTarget: boolean` flags into `Finding.contextLines` JSON.
+7. **Findings UI Architecture**:
+   - `/app/repositories/[id]` Overview tab: 'Run scan' button with commit/tag selector (`baseline`, `fix-good`, etc.) or branch selector, real-time job progress with 1.5s polling, live log stream, and dynamic scan history table.
+   - `/app/findings`: Linear-style dense table with Severity vs Verification grouping toggle, multi-parameter filters (Severity, Source, Verification Status, Triage Status), text search, keyboard shortcuts (`J`/`K` navigation, `Enter` to open, `X` to select), and empty/loading states.
+   - `/app/findings/[id]`: Detail view featuring evidence disclaimer banner (*"This is a potential finding, not yet proof that the vulnerability is exploitable"*), syntax-highlighted code block with line numbers and highlighted vulnerable range, rule explanation with CWE badge, three-part provenance panel (*From the scanner* filled, *Verified by a test* empty, *Written by AI* empty), and triage toggles (`OPEN` / `IGNORED`) with audit logging.
+
+### Files added / modified
+- `prisma/schema.prisma` (modified: added `contextLines Json?` to `Finding`)
+- `prisma/migrations/20261031070000_add_finding_context_lines/migration.sql` (added)
+- `package.json` (modified: added `semgrep:build`)
+- `worker/rules/patchproof-rules.yml` (added)
+- `worker/sandbox/semgrep.Dockerfile` (added)
+- `worker/src/scanner/semgrep-runner.js` (added)
+- `worker/src/handlers/scan.js` (added)
+- `worker/src/index.js` (modified: registered `scan` handler)
+- `src/app/api/jobs/route.js` (modified: allowed `scan` job type)
+- `src/app/api/repositories/[id]/route.js` (modified: returns recent `scans`)
+- `src/app/app/repositories/[id]/page.jsx` (modified: fetches initial `scans`)
+- `src/app/app/repositories/[id]/RepositoryDetailClient.jsx` (modified: scan trigger, live progress, and scan history)
+- `src/app/api/findings/route.js` (added: project-scoped findings list and search endpoint)
+- `src/app/api/findings/[id]/route.js` (added: finding details and triage PATCH endpoint)
+- `src/app/app/findings/FindingsClient.jsx` (added)
+- `src/app/app/findings/page.jsx` (modified)
+- `src/app/app/findings/[id]/FindingDetailClient.jsx` (added)
+- `src/app/app/findings/[id]/page.jsx` (added)
+- `BUILD_LOG.md` (modified)

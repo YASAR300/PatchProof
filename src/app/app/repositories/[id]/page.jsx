@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/auth";
+import { prisma } from "@/lib/db";
 import { getProjectForUser } from "@/lib/projects";
 import { getRecentCommits } from "@/lib/github";
 import { RepositoryDetailClient } from "./RepositoryDetailClient";
@@ -65,10 +66,18 @@ export default async function RepositoryDetailPage({ params }) {
     );
   }
 
+  // Fetch recent repository scans
+  const scans = await prisma.repositoryScan.findMany({
+    where: { projectId: project.id },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+
   return (
     <RepositoryDetailClient
       project={project}
       initialCommits={commits}
+      initialScans={scans}
       memberRole={project.memberRole}
     />
   );

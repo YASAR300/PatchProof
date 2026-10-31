@@ -187,6 +187,7 @@ model Finding {
   lineStart         Int?
   lineEnd           Int?
   snippet           String?            @db.Text
+  contextLines      Json?
   commitSha         String
   fingerprint       String
   cwe               String?

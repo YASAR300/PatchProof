@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,6 +17,13 @@ import {
   AlertTriangle,
   ChevronLeft,
   User,
+  Radar,
+  Play,
+  Loader2,
+  Terminal,
+  CheckCircle2,
+  Bug,
+  ArrowRight,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
@@ -24,9 +31,17 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 
-export function RepositoryDetailClient({ project, initialCommits = [], memberRole }) {
+export function RepositoryDetailClient({ project, initialCommits = [], initialScans = [], memberRole }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Scans & Live Job Polling
+  const [scans, setScans] = useState(initialScans);
+  const [selectedTag, setSelectedTag] = useState("baseline");
+  const [activeScanJob, setActiveScanJob] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [showScanLogs, setShowScanLogs] = useState(true);
+  const pollTimerRef = useRef(null);
 
   // Edit states
   const [name, setName] = useState(project.name);
@@ -46,6 +61,82 @@ export function RepositoryDetailClient({ project, initialCommits = [], memberRol
 
   const isViewer = memberRole === "VIEWER";
   const manifests = Array.isArray(project.detectedManifests) ? project.detectedManifests : [];
+
+  // Refresh scan history from server
+  const refreshScans = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/repositories/${project.id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.scans)) {
+        setScans(data.scans);
+      }
+    } catch {
+      // non-fatal
+    }
+  }, [project.id]);
+
+  // Poll active scan job every 1.5 seconds
+  useEffect(() => {
+    if (!activeScanJob?.id) return;
+
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/jobs/${activeScanJob.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.ok && data.job) {
+          setActiveScanJob(data.job);
+          if (
+            data.job.status === "SUCCEEDED" ||
+            data.job.status === "FAILED" ||
+            data.job.status === "CANCELED"
+          ) {
+            setIsScanning(false);
+            clearInterval(pollTimerRef.current);
+            refreshScans();
+            router.refresh();
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+    }, 1500);
+
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
+  }, [activeScanJob?.id, refreshScans, router]);
+
+  // Trigger scan
+  const handleTriggerScan = async () => {
+    setIsScanning(true);
+    setShowScanLogs(true);
+    try {
+      const targetRef = project.isDemo || project.repoUrl?.startsWith("local:") ? selectedTag : project.defaultBranch;
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "scan",
+          projectId: project.id,
+          payload: {
+            commitSha: targetRef,
+            targetRef,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to trigger scan job.");
+      if (data.ok && data.job) {
+        setActiveScanJob(data.job);
+      }
+    } catch (err) {
+      console.error("Scan trigger error:", err);
+      setIsScanning(false);
+    }
+  };
 
   const handleRename = async (e) => {
     e.preventDefault();
@@ -223,16 +314,111 @@ export function RepositoryDetailClient({ project, initialCommits = [], memberRol
 
         {/* Overview Tab */}
         <TabsContent value="overview">
-          <div className="space-y-6">
+          <div className="space-y-4">
+            {/* Security Scanner Trigger Card */}
+            <Card className="border-border">
+              <CardHeader className="py-3 px-4 border-b border-border/60">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Radar className="w-4 h-4 text-accent" />
+                    <div>
+                      <CardTitle className="text-sm font-medium text-text">Repository Security Scanner</CardTitle>
+                      <CardDescription className="text-xs">
+                        Static analysis powered by Semgrep engine with 8 offline detection rules
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {project.isDemo || project.repoUrl?.startsWith("local:") ? (
+                      <select
+                        value={selectedTag}
+                        onChange={(e) => setSelectedTag(e.target.value)}
+                        disabled={isScanning}
+                        className="h-8 px-2.5 rounded-[6px] border border-border bg-surface text-xs font-mono text-text outline-none focus:border-accent"
+                      >
+                        <option value="baseline">tag: baseline (vulnerable SQLi)</option>
+                        <option value="fix-good">tag: fix-good (parameterized fix)</option>
+                        <option value="fix-incomplete">tag: fix-incomplete (bypassable)</option>
+                        <option value="fix-regression">tag: fix-regression (broken O'Brien)</option>
+                        <option value="broken-build">tag: broken-build (syntax error)</option>
+                      </select>
+                    ) : (
+                      <div className="h-8 px-2.5 rounded-[6px] border border-border bg-surface-raised text-xs font-mono text-text flex items-center gap-1.5">
+                        <GitBranch className="w-3.5 h-3.5 text-text-tertiary" />
+                        <span>{project.defaultBranch}</span>
+                      </div>
+                    )}
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleTriggerScan}
+                      disabled={isScanning}
+                    >
+                      {isScanning ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                          Scanning...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 mr-1.5" />
+                          Run scan
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+
+              {/* Active Scan Progress & Logs */}
+              {activeScanJob && (
+                <CardContent className="p-4 space-y-3 bg-surface-raised/20 border-b border-border/60">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      {isScanning ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                      ) : activeScanJob.status === "SUCCEEDED" ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-rose-400" />
+                      )}
+                      <span className="font-medium text-text">
+                        Scan Job #{activeScanJob.id.slice(-8)} is {activeScanJob.status}
+                      </span>
+                      {activeScanJob.result?.findingCount !== undefined && (
+                        <span className="text-text-secondary font-mono">
+                          ({activeScanJob.result.findingCount} finding{activeScanJob.result.findingCount === 1 ? "" : "s"} found)
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowScanLogs(!showScanLogs)}
+                      className="text-text-secondary hover:text-text text-[11px] font-mono flex items-center gap-1"
+                    >
+                      <Terminal className="w-3 h-3" />
+                      {showScanLogs ? "Hide logs" : "View logs"}
+                    </button>
+                  </div>
+
+                  {showScanLogs && activeScanJob.logs && (
+                    <pre className="p-3 rounded-[6px] bg-[#080809] border border-border/80 font-mono text-[11px] text-text-secondary max-h-40 overflow-y-auto leading-relaxed select-text">
+                      {activeScanJob.logs}
+                    </pre>
+                  )}
+                </CardContent>
+              )}
+            </Card>
+
             {/* Metadata Card */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Repository Metadata</CardTitle>
+              <CardHeader className="py-3 px-4 border-b border-border/60">
+                <CardTitle className="text-sm font-medium">Repository Metadata</CardTitle>
                 <CardDescription className="text-xs">
                   Target configuration and branch tracking information.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs p-4">
                 <div className="space-y-0.5">
                   <div className="text-[11px] text-text-tertiary font-normal">Repository URL</div>
                   <div className="font-mono text-text truncate">
@@ -270,10 +456,10 @@ export function RepositoryDetailClient({ project, initialCommits = [], memberRol
                 </div>
 
                 <div className="space-y-0.5">
-                  <div className="text-[11px] text-text-tertiary font-normal">Latest Commit SHA</div>
+                  <div className="text-[11px] text-text-tertiary font-normal">Last Scanned Commit</div>
                   <div className="font-mono text-text flex items-center gap-1">
                     <GitCommit className="w-3.5 h-3.5 text-text-tertiary" />
-                    <span>{project.latestCommitSha ? project.latestCommitSha.slice(0, 7) : "—"}</span>
+                    <span>{project.lastScannedCommit ? project.lastScannedCommit.slice(0, 7) : "—"}</span>
                   </div>
                 </div>
 
@@ -289,8 +475,8 @@ export function RepositoryDetailClient({ project, initialCommits = [], memberRol
 
             {/* Detected Manifests */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
+              <CardHeader className="py-3 px-4 border-b border-border/60">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <FileCode className="w-4 h-4 text-accent" />
                   <span>Detected Package Manifests</span>
                 </CardTitle>
@@ -298,13 +484,13 @@ export function RepositoryDetailClient({ project, initialCommits = [], memberRol
                   Manifests detected at repository root or one level down using the Git Trees API.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4">
                 {manifests.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {manifests.map((manifestPath) => (
                       <div
                         key={manifestPath}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-surface-raised/40 font-mono text-xs text-text"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] border border-border bg-surface-raised font-mono text-xs text-text"
                       >
                         <FileCode className="w-3.5 h-3.5 text-accent" />
                         <span>{manifestPath}</span>
@@ -312,29 +498,82 @@ export function RepositoryDetailClient({ project, initialCommits = [], memberRol
                     ))}
                   </div>
                 ) : (
-                  <div className="text-xs text-text-muted italic">
-                    No matching package manifests (requirements.txt, package-lock.json, pnpm-lock.yaml, package.json, pyproject.toml) were found at the root or one level down.
+                  <div className="text-xs text-text-tertiary italic">
+                    No matching package manifests (requirements.txt, package-lock.json, pnpm-lock.yaml, package.json, pyproject.toml) were found.
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Scan History Placeholder */}
+            {/* Scan History Card */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Scan History</CardTitle>
-                <CardDescription className="text-xs">
-                  Vulnerability scans and automated harness runs recorded for this repository.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="p-8 text-center border border-dashed border-border/80 rounded-lg space-y-2">
-                  <Clock className="w-6 h-6 mx-auto text-text-muted" />
-                  <div className="text-xs font-semibold text-text">Never scanned</div>
-                  <div className="text-2xs text-text-muted max-w-sm mx-auto">
-                    No scans have been initiated for this repository yet. Scanner integration will discover and triage findings in upcoming steps.
-                  </div>
+              <CardHeader className="py-3 px-4 border-b border-border/60 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-medium">Scan History</CardTitle>
+                  <CardDescription className="text-xs">
+                    Vulnerability scans and static analysis executed for this repository.
+                  </CardDescription>
                 </div>
+                {scans.length > 0 && (
+                  <Link
+                    href="/app/findings"
+                    className="text-xs text-accent hover:underline flex items-center gap-1 font-medium"
+                  >
+                    <span>View all findings</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                )}
+              </CardHeader>
+              <CardContent className="p-0">
+                {scans.length === 0 ? (
+                  <div className="p-8 text-center space-y-2">
+                    <Clock className="w-6 h-6 mx-auto text-text-tertiary" />
+                    <div className="text-xs font-semibold text-text">Never scanned</div>
+                    <div className="text-2xs text-text-tertiary max-w-sm mx-auto">
+                      No scans have been initiated for this repository yet. Click &apos;Run scan&apos; above to trigger an analysis.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border/60 text-xs">
+                    {scans.map((scan) => (
+                      <div
+                        key={scan.id}
+                        className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-hover transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="px-2 py-0.5 rounded-[4px] bg-accent/10 text-accent font-mono text-[11px] border border-accent/20">
+                            {scan.tool}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="font-mono text-xs text-text flex items-center gap-1.5">
+                              <GitCommit className="w-3.5 h-3.5 text-text-tertiary" />
+                              <span>{scan.branch}</span>
+                              <span className="text-text-tertiary">({scan.commitSha ? scan.commitSha.slice(0, 7) : "—"})</span>
+                            </div>
+                            <div className="text-[11px] text-text-tertiary mt-0.5 flex items-center gap-2">
+                              <span>{formatDate(scan.createdAt || scan.startedAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <span
+                            className={`px-2 py-0.5 rounded-[4px] font-mono text-[11px] border ${
+                              scan.findingCount > 0
+                                ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            }`}
+                          >
+                            {scan.findingCount} {scan.findingCount === 1 ? "finding" : "findings"}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-[4px] bg-surface-raised border border-border text-[11px] text-text-secondary font-mono">
+                            {scan.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

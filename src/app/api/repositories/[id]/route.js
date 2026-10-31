@@ -29,10 +29,18 @@ export async function GET(req, { params }) {
       15
     );
 
+    // Fetch latest 10 repository scans
+    const scans = await prisma.repositoryScan.findMany({
+      where: { projectId: project.id },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+
     return NextResponse.json({
       ok: true,
       project,
       commits,
+      scans,
     });
   } catch (err) {
     return NextResponse.json(

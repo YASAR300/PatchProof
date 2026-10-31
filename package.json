@@ -11,6 +11,7 @@
     "demo:check": "node scripts/verify-demo-repo.mjs",
     "worker:dev": "node worker/src/index.js",
     "sandbox:build": "docker build -t patchproof-sandbox-python -f worker/sandbox/python.Dockerfile worker/sandbox",
+    "semgrep:build": "docker build -t patchproof-sandbox-semgrep -f worker/sandbox/semgrep.Dockerfile worker",
     "db:migrate": "prisma migrate dev",
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
