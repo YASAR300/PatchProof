@@ -16,6 +16,7 @@ import {
   Sparkles,
   RefreshCw,
   ExternalLink,
+  UploadCloud,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -177,6 +178,12 @@ export function FindingsClient({ initialFindings = [], initialProjectId = null }
         description="Detected code weaknesses and security advisories tracked with deterministic reproduction status."
         actions={
           <div className="flex items-center gap-2">
+            <Link href="/app/findings/import">
+              <Button variant="secondary" size="sm">
+                <UploadCloud className="w-3.5 h-3.5 mr-1.5" />
+                Import report
+              </Button>
+            </Link>
             <Button
               variant="secondary"
               size="sm"
@@ -410,8 +417,10 @@ export function FindingsClient({ initialFindings = [], initialProjectId = null }
 
                       {/* Right Columns: Source, Verification Status, Triage, Age */}
                       <div className="flex items-center gap-3 flex-shrink-0">
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-[4px] bg-surface-raised border border-border text-text-secondary hidden sm:inline-block">
-                          {finding.source}
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-[4px] bg-surface-raised border border-border text-text-secondary hidden sm:inline-block">
+                          {finding.source === "IMPORT"
+                            ? `Imported • ${finding.tool || "Scanner"}`
+                            : `Scanner • ${finding.tool || "semgrep"}`}
                         </span>
 
                         <StatusBadge status={finding.verificationState} size="sm" />

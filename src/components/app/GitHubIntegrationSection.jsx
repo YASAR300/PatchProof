@@ -133,3 +133,4 @@ export function GitHubIntegrationSection({ user }) {
     </Card>
   );
 }
+

@@ -407,3 +407,16 @@ model WorkerHeartbeat {
 
   @@index([lastSeenAt])
 }
+
+model OsvCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique
+  data      Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cacheKey])
+  @@index([expiresAt])
+}
+

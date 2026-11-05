@@ -1,0 +1,120 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "CodeQL",
+          "version": "2.16.4",
+          "rules": [
+            {
+              "id": "py/sql-injection",
+              "name": "SQL Injection",
+              "shortDescription": {
+                "text": "Query built from user-controlled sources without parameterized bindings."
+              },
+              "fullDescription": {
+                "text": "Building a database query from untrusted user input directly via formatted strings enables SQL injection, which can lead to data exfiltration or unauthorized system access."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://cwe.mitre.org/data/definitions/89.html",
+              "properties": {
+                "security-severity": "9.3",
+                "cwe": "CWE-89",
+                "tags": [
+                  "security",
+                  "external/cwe/cwe-89"
+                ]
+              }
+            },
+            {
+              "id": "py/cleartext-storage-sensitive-data",
+              "name": "Cleartext Storage of Sensitive Information",
+              "shortDescription": {
+                "text": "Sensitive credential string stored without encryption or hashing."
+              },
+              "fullDescription": {
+                "text": "Credentials or private keys stored in unencrypted format can be accessed by unauthorized processes or users."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "security-severity": "6.5",
+                "cwe": "CWE-312",
+                "tags": [
+                  "security",
+                  "external/cwe/cwe-312"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "py/sql-injection",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "User input directly flows into SQL query execution via f-string without parameter binding."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/users.py"
+                },
+                "region": {
+                  "startLine": 6,
+                  "startColumn": 5,
+                  "endLine": 6,
+                  "endColumn": 86,
+                  "snippet": {
+                    "text": "    query = f\"SELECT id, username, email, role FROM users WHERE username = '{name}'\""
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "security-severity": "9.3"
+          }
+        },
+        {
+          "ruleId": "py/cleartext-storage-sensitive-data",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Database credentials configuration defined with plaintext password variable."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/database_config.py"
+                },
+                "region": {
+                  "startLine": 12,
+                  "startColumn": 1,
+                  "endLine": 12,
+                  "endColumn": 45,
+                  "snippet": {
+                    "text": "DB_PASSWORD = \"production_root_db_secret_key\""
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "security-severity": "6.5"
+          }
+        }
+      ]
+    }
+  ]
+}
+

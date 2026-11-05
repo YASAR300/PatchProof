@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "1.0.0",
+  "comment": "Deliberately malformed SARIF file for negative testing. Missing required runs array and invalid version.",
+  "results": [
+    {
+      "ruleId": "invalid-rule-missing-runs",
+      "message": "Malformed document structure"
+    }
+  ]
+}
+

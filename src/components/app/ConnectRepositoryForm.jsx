@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   FolderGit2,
@@ -10,6 +10,7 @@ import {
   FileCode,
   ShieldAlert,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -34,6 +35,29 @@ export function ConnectRepositoryForm({ onSuccess, onCancel }) {
   const [name, setName] = useState("");
   const [language, setLanguage] = useState("JavaScript/TypeScript");
   const [defaultBranch, setDefaultBranch] = useState("main");
+
+  // GitHub quick-import repositories list
+  const [userRepos, setUserRepos] = useState([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
+
+  useEffect(() => {
+    async function loadGitHubRepos() {
+      setLoadingRepos(true);
+      try {
+        const res = await fetch("/api/github/repos");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.repos)) {
+          setUserRepos(data.repos);
+        }
+      } catch {
+        // non-fatal
+      } finally {
+        setLoadingRepos(false);
+      }
+    }
+    loadGitHubRepos();
+  }, []);
 
   // Client-side quick syntax pre-check
   const validateUrlClient = (val) => {
@@ -142,6 +166,51 @@ export function ConnectRepositoryForm({ onSuccess, onCancel }) {
 
   return (
     <form onSubmit={validatedData ? handleSubmit : handleInspect} className="space-y-5">
+      {/* GitHub Repository Quick Selection */}
+      {userRepos.length > 0 && (
+        <div className="space-y-1.5 p-3 rounded-xl bg-surface-raised/40 border border-border">
+          <div className="flex items-center justify-between text-2xs text-text-secondary">
+            <span className="flex items-center gap-1.5 font-medium">
+              <Sparkles className="w-3.5 h-3.5 text-accent" />
+              1-Click Pick from your GitHub or demo repos:
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pt-1">
+            {userRepos.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => {
+                  setUrl(r.htmlUrl);
+                  setName(r.name);
+                  setLanguage(r.language || "JavaScript/TypeScript");
+                  setDefaultBranch(r.defaultBranch || "main");
+                  setValidatedData({
+                    url: r.htmlUrl,
+                    owner: r.fullName?.split("/")[0] || "owner",
+                    repo: r.name,
+                    name: r.name,
+                    defaultBranch: r.defaultBranch || "main",
+                    suggestedLanguage: r.language || "JavaScript/TypeScript",
+                    isPrivate: r.isPrivate,
+                  });
+                  setValidationError("");
+                }}
+                className="px-2.5 py-1 rounded-[6px] text-2xs font-mono bg-surface hover:bg-surface-hover border border-border text-text hover:text-accent flex items-center gap-1.5 transition-colors"
+              >
+                <FolderGit2 className="w-3 h-3 text-text-tertiary" />
+                <span className="truncate max-w-[150px]">{r.name}</span>
+                {r.isDemo && (
+                  <span className="px-1 py-0.5 rounded text-[9px] bg-accent/15 text-accent font-sans font-semibold">
+                    Demo
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* GitHub Repository URL Input */}
       <div>
         <div className="flex items-center justify-between mb-1.5">

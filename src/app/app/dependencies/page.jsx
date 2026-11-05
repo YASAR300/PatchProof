@@ -1,52 +1,79 @@
 import React from "react";
-import { Package, Upload, Filter } from "lucide-react";
+import { cookies } from "next/headers";
+import { Package, Upload } from "lucide-react";
+import { requireUser } from "@/auth";
+import { prisma } from "@/lib/db";
+import { getActiveProject } from "@/lib/projects";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
+import { DependenciesClient } from "./DependenciesClient";
 
 export const metadata = {
-  title: "Dependencies",
-  description: "Software bill of materials and reachability analysis",
+  title: "Dependencies — PatchProof",
+  description: "Software bill of materials and vulnerability advisory tracking",
 };
 
-export default function DependenciesPage() {
-  return (
-    <div className="space-y-4 font-sans w-full">
-      <PageHeader
-        title="Dependencies"
-        description="Software bill of materials (SBOM) and call-graph reachability distinguishing actual vulnerability vectors from unused code."
-        actions={
-          <Button variant="secondary" size="sm">
-            <Upload className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-            Import lockfile
-          </Button>
-        }
-      />
+export default async function DependenciesPage() {
+  const user = await requireUser();
+  const cookieStore = await cookies();
+  const { activeProject } = await getActiveProject(cookieStore, user.id);
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-border text-xs">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-[4px] border border-border bg-surface text-text-secondary">
-            <Filter className="w-3 h-3 text-text-tertiary" />
-            <span className="text-[11px]">Ecosystem:</span>
-            <span className="text-[11px] font-medium text-text">All manifests</span>
-          </div>
-        </div>
-        <div className="text-[11px] font-mono text-text-tertiary tabular-nums">
-          0 packages
-        </div>
+  if (!activeProject) {
+    return (
+      <div className="space-y-4 font-sans w-full max-w-[1200px] mx-auto">
+        <PageHeader
+          title="Dependencies"
+          description="Software bill of materials (SBOM) and reachability analysis distinguishing actual vulnerability vectors from unused code."
+        />
+        <EmptyState
+          icon={<Package className="w-5 h-5 text-text-secondary" />}
+          title="No active project selected"
+          description="Select or connect a repository to view software dependencies and vulnerability advisories."
+        />
       </div>
+    );
+  }
 
-      <EmptyState
-        icon={<Package className="w-4 h-4 text-text-secondary" aria-hidden="true" />}
-        title="No dependency manifests parsed"
-        description="Scan lockfiles (package-lock.json, poetry.lock, requirements.txt) to identify vulnerable transitive dependencies and call-graph reachability."
-        action={
-          <Button variant="secondary" size="sm">
-            Scan project dependencies
-          </Button>
-        }
-      />
-    </div>
+  // Fetch real dependencies for the active project
+  const dependencies = await prisma.dependency.findMany({
+    where: { projectId: activeProject.id },
+    orderBy: [
+      { severity: "desc" },
+      { name: "asc" },
+    ],
+  });
+
+  // Calculate unique metrics
+  const packageMap = new Map();
+  const directSet = new Set();
+  const transitiveSet = new Set();
+  const advisorySet = new Set();
+
+  for (const dep of dependencies) {
+    packageMap.set(dep.name.toLowerCase(), dep);
+    if (dep.isDirect) {
+      directSet.add(dep.name.toLowerCase());
+    } else {
+      transitiveSet.add(dep.name.toLowerCase());
+    }
+    if (dep.advisoryId) {
+      advisorySet.add(dep.name.toLowerCase());
+    }
+  }
+
+  const summary = {
+    packagesScanned: packageMap.size,
+    packagesWithAdvisories: advisorySet.size,
+    directCount: directSet.size,
+    transitiveCount: transitiveSet.size,
+  };
+
+  return (
+    <DependenciesClient
+      initialDependencies={dependencies}
+      summary={summary}
+      activeProject={activeProject}
+    />
   );
 }

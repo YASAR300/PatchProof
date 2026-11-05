@@ -5,6 +5,7 @@ import { prisma } from "./db.js";
 import { getDockerVersion, getSandboxRuntime } from "./docker-info.js";
 import { handleSelfTest } from "./handlers/selftest.js";
 import { handleScan } from "./handlers/scan.js";
+import { handleDependencyScan } from "./handlers/dependency-scan.js";
 
 const WORKER_VERSION = "0.1.0";
 const workerId = `worker-${os.hostname().toLowerCase().replace(/[^a-z0-9_-]/g, "-")}-${process.pid}`;
@@ -14,6 +15,7 @@ const workerStartedAt = new Date();
 const handlers = new Map();
 handlers.set("selftest", handleSelfTest);
 handlers.set("scan", handleScan);
+handlers.set("dependency-scan", handleDependencyScan);
 
 let activeJob = null;
 let isShuttingDown = false;

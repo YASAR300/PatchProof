@@ -17,21 +17,6 @@ export function RepositoriesClient({ initialProjects = [] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddingDemo, setIsAddingDemo] = useState(false);
 
-  const handleAddDemo = async () => {
-    try {
-      setIsAddingDemo(true);
-      const res = await fetch("/api/repositories/demo", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add demo repo");
-      router.push(`/app/repositories/${data.project.id}`);
-      router.refresh();
-    } catch (err) {
-      alert(err.message || "Failed to add demo repository");
-    } finally {
-      setIsAddingDemo(false);
-    }
-  };
-
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return initialProjects;
     const q = searchQuery.toLowerCase();

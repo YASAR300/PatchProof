@@ -24,7 +24,7 @@ export default async function FindingDetailPage({ params }) {
   const { id } = await params;
   const user = await requireUser();
 
-  const finding = await prisma.finding.findUnique({
+  let finding = await prisma.finding.findUnique({
     where: { id },
     include: {
       project: {
@@ -56,11 +56,7 @@ export default async function FindingDetailPage({ params }) {
   }
 
   // Ensure user has access to project
-  try {
-    await requireProjectRole(finding.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
-  } catch {
-    notFound();
-  }
+  await requireProjectRole(finding.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
 
   return <FindingDetailClient finding={finding} />;
 }

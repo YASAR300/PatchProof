@@ -1,0 +1,57 @@
+{
+  "version": "1.80.0",
+  "results": [
+    {
+      "check_id": "python.sqli.string-concatenation",
+      "path": "src/users.py",
+      "start": { "line": 6, "col": 5 },
+      "end": { "line": 6, "col": 86 },
+      "extra": {
+        "message": "Detected SQL query built using string formatting or direct variable concatenation. Untrusted input could allow unauthorized SQL injection attacks.",
+        "severity": "ERROR",
+        "lines": "    query = f\"SELECT id, username, email, role FROM users WHERE username = '{name}'\"",
+        "metadata": {
+          "cwe": "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Constructing dynamic SQL queries with string interpolation bypasses parameter binding and allows attackers to execute arbitrary SQL commands.",
+          "confidence": "HIGH"
+        }
+      }
+    },
+    {
+      "check_id": "python.sqli.string-concatenation",
+      "path": "src/users.py",
+      "start": { "line": 13, "col": 9 },
+      "end": { "line": 13, "col": 105 },
+      "extra": {
+        "message": "Incomplete sanitization fallback using string replace inside query execution.",
+        "severity": "WARNING",
+        "lines": "        rows = cursor.execute(f\"SELECT id, username, email, role FROM users WHERE username = '{escaped}'\").fetchall()",
+        "metadata": {
+          "cwe": "CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')",
+          "owasp": "A03:2021 - Injection",
+          "explanation": "Manual string replacement for apostrophes does not adequately prevent complex SQL injection vectors.",
+          "confidence": "MEDIUM"
+        }
+      }
+    },
+    {
+      "check_id": "python.hardcoded-secret",
+      "path": "src/auth_service.py",
+      "start": { "line": 18, "col": 5 },
+      "end": { "line": 18, "col": 48 },
+      "extra": {
+        "message": "Hardcoded JWT secret token detected in source code.",
+        "severity": "ERROR",
+        "lines": "    JWT_SECRET = \"dev_jwt_super_insecure_token_2026\"",
+        "metadata": {
+          "cwe": "CWE-798: Use of Hard-coded Credentials",
+          "owasp": "A07:2021 - Identification and Authentication Failures",
+          "explanation": "Hardcoded credentials can be extracted by any party with access to the source repository."
+        }
+      }
+    }
+  ],
+  "errors": []
+}
+

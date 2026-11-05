@@ -728,3 +728,109 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 - `src/app/app/findings/[id]/FindingDetailClient.jsx` (added)
 - `src/app/app/findings/[id]/page.jsx` (added)
 - `BUILD_LOG.md` (modified)
+
+---
+
+## Step 10: Multi-Scanner Findings Importer (2026-10-31)
+
+### Decisions and assumptions
+1. **Server-Side Importer Architecture (`src/lib/importers/`)**:
+   - `sarif.js`: Validates and normalizes SARIF 2.1.0 documents. Handles multiple `runs`, resolves rule metadata from `tool.driver.rules`, normalizes artifact paths (stripping `file://`), extracts snippets, CWE identifiers from tags/helpUri/properties, and extracts tool driver name (`tool.driver.name`, e.g. CodeQL, Trivy, Snyk).
+   - `semgrep-json.js`: Validates Semgrep JSON results schema with Zod. Normalizes file paths, snippets, CWE metadata, and severity values.
+   - `detect.js`: Automatic format detection based on schema signatures (`sarif` vs `semgrep`), commit SHA validation (7-40 hex characters), and stable fingerprint generation (`sha256(ruleId + ':' + filePath + ':' + normalizedSnippet)`).
+2. **Severity Mapping**:
+   - SARIF: Maps `security-severity` score (>= 9.0 -> `CRITICAL`, >= 7.0 -> `HIGH`, >= 4.0 -> `MEDIUM`, > 0 -> `LOW`) or falls back to result/rule level (`error` -> `HIGH`, `warning` -> `MEDIUM`, `note` -> `LOW`, `none` -> `INFO`).
+   - Semgrep: Maps `ERROR` -> `HIGH`, `WARNING` -> `MEDIUM`, `INFO` -> `LOW`.
+3. **Security Safeguards**:
+   - Server-side Zod validation strictly enforces structural schemas, rejecting malformed files with detailed diagnostics.
+   - Files above 5 MB or with extensions other than `.json` and `.sarif` are rejected at the edge.
+   - Zero execution: no scripts or URLs in reports are ever executed or fetched.
+4. **Duplicate Detection & Audit Logging**:
+   - Preview step checks incoming fingerprints against existing database findings for the target project and returns exact duplicate counts.
+   - Confirm step inserts `Finding` rows with `source: 'IMPORT'`, skips duplicates, and records `AuditEvent` with `action: 'FINDINGS_IMPORTED'` and count metadata.
+5. **UI & Navigation**:
+   - `/app/findings/import`: Three-step wizard (Configure & Upload -> Preview & Validate -> Import Summary) with quick sample test loaders.
+   - `/app/findings`: Added 'Import report' button in the page header and enhanced finding rows to display `Imported • <ToolName>`.
+   - `/app/findings/[id]`: Provenance panel accurately displays `From imported report` and tool name for imported findings.
+   - Added skeleton loading screens (`loading.jsx`) for `/app/findings` and `/app/findings/import`.
+6. **Sample Test Suite (`samples/`)**:
+   - `samples/sample.sarif`: CodeQL SARIF 2.1.0 export matching `src/users.py` in demo repository.
+   - `samples/semgrep-sample.json`: Semgrep JSON export matching `src/users.py` in demo repository.
+   - `samples/malformed.sarif`: Deliberately malformed file for negative schema validation testing.
+
+### Files added / modified
+- `src/lib/importers/sarif.js` (added)
+- `src/lib/importers/semgrep-json.js` (added)
+- `src/lib/importers/detect.js` (added)
+- `src/lib/importers/index.js` (added)
+- `src/app/api/findings/import/preview/route.js` (added)
+- `src/app/api/findings/import/confirm/route.js` (added)
+- `src/app/api/github/repos/route.js` (added)
+- `src/app/app/findings/import/page.jsx` (added)
+- `src/app/app/findings/import/ImportFindingsClient.jsx` (added)
+- `src/app/app/findings/import/loading.jsx` (added)
+- `src/app/app/findings/loading.jsx` (added)
+- `src/app/app/findings/FindingsClient.jsx` (modified: added 'Import report' button and `Imported • Tool` badges)
+- `src/app/app/findings/[id]/FindingDetailClient.jsx` (modified: provenance origin displays imported status)
+- `src/components/app/ConnectRepositoryForm.jsx` (modified: 1-click GitHub repository picker)
+- `samples/sample.sarif` (added)
+- `samples/semgrep-sample.json` (added)
+- `samples/malformed.sarif` (added)
+- `BUILD_LOG.md` (modified)
+
+---
+
+## Step 11: Dependency Intelligence (2026-11-05)
+
+### Decisions and assumptions
+1. **Pure JavaScript Parsing Architecture (`worker/src/deps/`)**:
+   - `requirements-parser.js`: Parses pinned `==` dependencies, extracts package name and version, strips inline comments and environment markers. All comments and empty lines are safely ignored, while unpinned/unsupported specifiers (`>=`, `<=`, `~=`, `@`, etc.) are recorded and reported as `unresolved`.
+   - `package-lock-parser.js`: Parses npm `package-lock.json` lockfileVersion 2 and 3 using the `packages` tree. Computes whether each package is direct or transitive by inspecting root declarations (`packages[""]`), and computes BFS shortest dependency paths from `"root"`.
+   - `pnpm-lock-parser.js`: Parses `pnpm-lock.yaml` v6 and v9 using the `yaml` package. Normalizes package keys, scoped prefixes, peer dependency qualifiers, and builds dependency graph paths.
+   - `graph.js`: Builds directed graphs and computes shortest paths from `"root"` to every package using Breadth-First Search (BFS), returning breadcrumbs such as `["root", "express", "body-parser", "qs"]`.
+   - `version-utils.js`: Version comparison and major version bump risk detection (`isMajorBump`). If a fixed version advances the major version component (or minor in 0.x), it flags compatibility risk.
+2. **OSV.dev Batch Vulnerability Intelligence (`worker/src/deps/osv-client.js`)**:
+   - Queries `https://api.osv.dev/v1/querybatch` with ecosystems `PyPI` and `npm`.
+   - 24-hour database caching: added `OsvCache` model to store OSV query and vuln responses keyed by `osv:query:${ecosystem}:${name}@${version}` and `osv:vuln:${id}`.
+   - Request timeout (10-12s) and automatic single retry. If OSV is completely unreachable (e.g. offline/network failure), catches gracefully and persists packages with zero advisories while logging a warning and setting `osvOffline: true` in the audit event metadata.
+   - Extracts advisory ID, URL, summary, CVSS/database severity (mapped to `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO`, or `UNKNOWN`), affected range, and lowest fixed version.
+3. **Database & Audit Logging**:
+   - Replaced old project dependencies transactionally on rescan (`prisma.dependency.deleteMany` + `prisma.dependency.createMany`).
+   - Audit events: logs `DEPENDENCY_SCAN_STARTED` upon job initiation and `DEPENDENCY_SCAN_COMPLETED` with comprehensive statistics upon completion.
+4. **Web UI Architecture**:
+   - `/app/repositories/[id]`: Added 'Scan dependencies' button alongside 'Run scan' with real-time job progress (1.5s polling), live log console stream, and link to dependencies view.
+   - `/app/dependencies`: Linear-style table with package, installed version, direct/transitive badge, severity badge, external advisory link to OSV, fixed version, and lockfile.
+   - Expandable rows reveal dependency path breadcrumbs (`root > express > qs`), advisory summary, suggested next step (*"Review the advisory's affected range and fixed versions, update to an appropriate version, and run regression tests."*), and upgrade-risk note (*"Major version change: compatibility risk, review the changelog."*).
+   - Summary statistics cards: packages scanned, packages with advisories, direct vs transitive count.
+   - Added `/app/dependencies/loading.jsx` skeleton loading state.
+   - Removed all temporary hardcoded mock data across `/app`, `/app/findings`, `/app/repositories`, `/app/runs`, `/app/reports`, and `/app/audit`, ensuring 100% dynamic, database-backed UI.
+5. **Real Demo Repository Verification**:
+   - Scanned `.data/demo-target`: successfully discovered `requirements.txt` and `web/package-lock.json`, extracting 4 packages (`requests`, `flask`, `express`, `lodash`), detecting 19 real OSV advisories, and populating the database.
+
+### Files added / modified
+- `prisma/schema.prisma` (modified: added `OsvCache` model)
+- `prisma/migrations/20261105000000_add_osv_cache/migration.sql` (added)
+- `worker/package.json` (modified: added `yaml`)
+- `worker/src/deps/graph.js` (added)
+- `worker/src/deps/version-utils.js` (added)
+- `worker/src/deps/requirements-parser.js` (added)
+- `worker/src/deps/package-lock-parser.js` (added)
+- `worker/src/deps/pnpm-lock-parser.js` (added)
+- `worker/src/deps/osv-client.js` (added)
+- `worker/src/deps/index.js` (added)
+- `worker/src/handlers/dependency-scan.js` (added)
+- `worker/src/index.js` (modified: registered `dependency-scan` handler)
+- `src/lib/version-utils.js` (added)
+- `src/app/api/jobs/route.js` (modified: allowed `dependency-scan` job type)
+- `src/app/app/dependencies/DependenciesClient.jsx` (added)
+- `src/app/app/dependencies/page.jsx` (modified: real database querying & summary metrics)
+- `src/app/app/dependencies/loading.jsx` (added)
+- `src/app/app/repositories/[id]/RepositoryDetailClient.jsx` (modified: added 'Scan dependencies' button and live progress)
+- `src/app/app/audit/page.jsx` (modified: dynamic audit events for dependency scans)
+- `src/app/app/page.jsx` (modified: restored real dynamic database state)
+- `src/app/app/repositories/RepositoriesClient.jsx` (modified: restored real dynamic database state)
+- `src/app/app/findings/FindingsClient.jsx` (modified: restored real dynamic database state)
+- `src/app/app/findings/[id]/page.jsx` (modified: restored real dynamic database state)
+- `src/app/app/runs/page.jsx` (modified: restored real dynamic database state)
+- `src/app/app/reports/page.jsx` (modified: restored real dynamic database state)
+- `BUILD_LOG.md` (modified)

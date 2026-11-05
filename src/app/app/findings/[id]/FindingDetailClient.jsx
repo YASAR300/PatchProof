@@ -247,12 +247,14 @@ export function FindingDetailClient({ finding: initialFinding }) {
           <div className="p-3.5 rounded-[8px] bg-surface border border-border space-y-2 text-xs">
             <div className="flex items-center gap-1.5 text-text font-medium">
               <Terminal className="w-3.5 h-3.5 text-accent" />
-              <span>From the scanner</span>
+              <span>{finding.source === "IMPORT" ? "From imported report" : "From the scanner"}</span>
             </div>
             <div className="space-y-1 text-[11px] text-text-secondary">
               <div>
-                <span className="text-text-tertiary">Tool:</span>{" "}
-                <span className="font-mono text-text uppercase">{finding.tool}</span>
+                <span className="text-text-tertiary">Source:</span>{" "}
+                <span className="font-mono text-text">
+                  {finding.source === "IMPORT" ? `Imported (${finding.tool})` : `Scanner (${finding.tool})`}
+                </span>
               </div>
               <div>
                 <span className="text-text-tertiary">Rule ID:</span>{" "}

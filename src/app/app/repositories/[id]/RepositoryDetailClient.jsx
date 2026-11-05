@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   Bug,
   ArrowRight,
+  Package,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
@@ -42,6 +43,12 @@ export function RepositoryDetailClient({ project, initialCommits = [], initialSc
   const [isScanning, setIsScanning] = useState(false);
   const [showScanLogs, setShowScanLogs] = useState(true);
   const pollTimerRef = useRef(null);
+
+  // Dependency Scans & Live Progress
+  const [activeDepsJob, setActiveDepsJob] = useState(null);
+  const [isScanningDeps, setIsScanningDeps] = useState(false);
+  const [showDepsLogs, setShowDepsLogs] = useState(true);
+  const depsPollTimerRef = useRef(null);
 
   // Edit states
   const [name, setName] = useState(project.name);
@@ -108,6 +115,37 @@ export function RepositoryDetailClient({ project, initialCommits = [], initialSc
     };
   }, [activeScanJob?.id, refreshScans, router]);
 
+  // Poll active dependency scan job every 1.5 seconds
+  useEffect(() => {
+    if (!activeDepsJob?.id) return;
+
+    depsPollTimerRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/jobs/${activeDepsJob.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.ok && data.job) {
+          setActiveDepsJob(data.job);
+          if (
+            data.job.status === "SUCCEEDED" ||
+            data.job.status === "FAILED" ||
+            data.job.status === "CANCELED"
+          ) {
+            setIsScanningDeps(false);
+            if (depsPollTimerRef.current) clearInterval(depsPollTimerRef.current);
+            router.refresh();
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+    }, 1500);
+
+    return () => {
+      if (depsPollTimerRef.current) clearInterval(depsPollTimerRef.current);
+    };
+  }, [activeDepsJob?.id, router]);
+
   // Trigger scan
   const handleTriggerScan = async () => {
     setIsScanning(true);
@@ -135,6 +173,37 @@ export function RepositoryDetailClient({ project, initialCommits = [], initialSc
     } catch (err) {
       console.error("Scan trigger error:", err);
       setIsScanning(false);
+    }
+  };
+
+  // Trigger dependency scan
+  const handleTriggerDependencyScan = async () => {
+    setIsScanningDeps(true);
+    setShowDepsLogs(true);
+    try {
+      const targetRef = project.isDemo || project.repoUrl?.startsWith("local:") ? selectedTag : project.defaultBranch;
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "dependency-scan",
+          projectId: project.id,
+          payload: {
+            commitSha: targetRef,
+            targetRef,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to trigger dependency scan.");
+      if (data.ok && data.job) {
+        setActiveDepsJob(data.job);
+      }
+    } catch (err) {
+      console.error("Dependency scan trigger error:", err);
+      alert(err.message || "Failed to start dependency scan.");
+      setIsScanningDeps(false);
     }
   };
 
@@ -366,9 +435,80 @@ export function RepositoryDetailClient({ project, initialCommits = [], initialSc
                         </>
                       )}
                     </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleTriggerDependencyScan}
+                      disabled={isScanningDeps}
+                    >
+                      {isScanningDeps ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                          Scanning dependencies...
+                        </>
+                      ) : (
+                        <>
+                          <Package className="w-3.5 h-3.5 mr-1.5" />
+                          Scan dependencies
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
+
+              {/* Active Dependency Scan Progress & Logs */}
+              {activeDepsJob && (
+                <CardContent className="p-4 space-y-3 bg-surface-raised/30 border-b border-border/60">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {isScanningDeps ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                      ) : activeDepsJob.status === "SUCCEEDED" ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-rose-400" />
+                      )}
+                      <span className="font-medium text-text">
+                        Dependency Scan #{activeDepsJob.id.slice(-8)} is {activeDepsJob.status}
+                      </span>
+                      {activeDepsJob.result?.packagesScanned !== undefined && (
+                        <span className="text-text-secondary font-mono">
+                          ({activeDepsJob.result.packagesScanned} packages scanned,{" "}
+                          <span className={activeDepsJob.result.packagesWithAdvisories > 0 ? "text-rose-400 font-semibold" : "text-emerald-400"}>
+                            {activeDepsJob.result.packagesWithAdvisories} with advisories
+                          </span>)
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {activeDepsJob.status === "SUCCEEDED" && (
+                        <Link
+                          href="/app/dependencies"
+                          className="text-accent hover:underline text-xs flex items-center gap-1 font-medium"
+                        >
+                          <span>View in Dependencies</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowDepsLogs(!showDepsLogs)}
+                        className="text-text-secondary hover:text-text text-[11px] font-mono flex items-center gap-1"
+                      >
+                        <Terminal className="w-3 h-3" />
+                        {showDepsLogs ? "Hide logs" : "View logs"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {showDepsLogs && activeDepsJob.logs && (
+                    <pre className="p-3 rounded-[6px] bg-[#080809] border border-border/80 font-mono text-[11px] text-text-secondary max-h-40 overflow-y-auto leading-relaxed select-text">
+                      {activeDepsJob.logs}
+                    </pre>
+                  )}
+                </CardContent>
+              )}
 
               {/* Active Scan Progress & Logs */}
               {activeScanJob && (

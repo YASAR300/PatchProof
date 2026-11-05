@@ -76,6 +76,12 @@ export default async function AuditPage() {
                       ? `Project repository ${evt.project?.name || ""} connected`
                       : evt.action === "PROJECT_UPDATED"
                       ? `Repository ${evt.project?.name || ""} settings updated`
+                      : evt.action === "FINDINGS_IMPORTED"
+                      ? `Imported external scanner report for ${evt.project?.name || ""}`
+                      : evt.action === "DEPENDENCY_SCAN_STARTED"
+                      ? `Dependency scan initiated for ${evt.project?.name || ""}`
+                      : evt.action === "DEPENDENCY_SCAN_COMPLETED"
+                      ? `Dependency scan completed for ${evt.project?.name || ""}`
                       : evt.action}
                   </span>
                   {evt.actor && (
