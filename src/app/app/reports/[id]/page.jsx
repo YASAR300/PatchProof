@@ -51,3 +51,4 @@ export default async function ReportDetailPage({ params }) {
 
   return <ReportDetailClient report={report} />;
 }
+

@@ -90,3 +90,4 @@ export async function computeGitDiff(repoPath, baselineSha, candidateSha) {
     },
   };
 }
+
