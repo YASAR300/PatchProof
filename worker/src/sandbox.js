@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { spawn } from "node:child_process";
 
 const MAX_OUTPUT_BYTES = 1024 * 1024; // 1 MB cap
@@ -119,7 +122,7 @@ function spawnProcess(command, args, { stdinBuffer, timeoutMs } = {}) {
  * Emulated fallback runner when Docker CLI is not installed or available.
  * Mirrors the exact security boundaries and return contract.
  */
-async function runEmulatedSandbox({ command, timeoutMs = 30000, memoryMb = 512 }) {
+async function runEmulatedSandbox({ command, timeoutMs = 30000, memoryMb = 512, archiveBuffer, env = {} }) {
   const startTime = Date.now();
   const cmdStr = Array.isArray(command) ? command.join(" ") : String(command);
 
@@ -193,6 +196,109 @@ async function runEmulatedSandbox({ command, timeoutMs = 30000, memoryMb = 512 }
       truncated: false,
       imageDigest: "sha256:emulated-sandbox-python-3.12",
     };
+  }
+
+  // 6. Real command execution on archiveBuffer workspace
+  if (archiveBuffer && Buffer.isBuffer(archiveBuffer) && archiveBuffer.length > 0) {
+    const tmpDir = path.join(os.tmpdir(), `patchproof-sandbox-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    try {
+      // Extract tar archive into isolated temp workspace
+      await new Promise((resolve, reject) => {
+        const child = spawn("tar", ["-xf", "-", "-C", tmpDir], {
+          stdio: ["pipe", "pipe", "pipe"],
+          windowsHide: true,
+        });
+        child.stdin.write(archiveBuffer);
+        child.stdin.end();
+        child.on("close", (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(`Failed to unpack archive: tar exited with ${code}`));
+        });
+        child.on("error", reject);
+      });
+
+      // Split command into executable and argument array
+      let exe = "python";
+      let args = [];
+      if (Array.isArray(command)) {
+        exe = command[0];
+        args = command.slice(1);
+      } else if (typeof command === "string") {
+        const parts = command.trim().split(/\s+/);
+        exe = parts[0];
+        args = parts.slice(1);
+      }
+
+      const res = await new Promise((resolve) => {
+        let stdout = "";
+        let stderr = "";
+        let timedOut = false;
+        let timer = null;
+
+        const child = spawn(exe, args, {
+          cwd: tmpDir,
+          env: {
+            ...process.env,
+            PYTHONDONTWRITEBYTECODE: "1",
+            PYTHONUNBUFFERED: "1",
+            ...env,
+          },
+          windowsHide: true,
+        });
+
+        if (timeoutMs && timeoutMs > 0) {
+          timer = setTimeout(() => {
+            timedOut = true;
+            try {
+              child.kill("SIGKILL");
+            } catch {}
+          }, timeoutMs);
+        }
+
+        child.stdout?.on("data", (chunk) => {
+          stdout += chunk.toString("utf8");
+        });
+        child.stderr?.on("data", (chunk) => {
+          stderr += chunk.toString("utf8");
+        });
+
+        child.on("close", (code) => {
+          if (timer) clearTimeout(timer);
+          resolve({
+            exitCode: timedOut ? 137 : (code ?? 1),
+            stdout,
+            stderr,
+            durationMs: Date.now() - startTime,
+            timedOut,
+            oomKilled: false,
+            truncated: false,
+            imageDigest: "sha256:emulated-sandbox-python-3.12",
+          });
+        });
+
+        child.on("error", (err) => {
+          if (timer) clearTimeout(timer);
+          resolve({
+            exitCode: 1,
+            stdout,
+            stderr: err.message,
+            durationMs: Date.now() - startTime,
+            timedOut: false,
+            oomKilled: false,
+            truncated: false,
+            imageDigest: "sha256:emulated-sandbox-python-3.12",
+          });
+        });
+      });
+
+      return res;
+    } finally {
+      try {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      } catch {}
+    }
   }
 
   return {
@@ -280,7 +386,7 @@ export async function runInSandbox({
     const createRes = await spawnProcess("docker", createArgs);
     if (createRes.error && createRes.error.code === "ENOENT") {
       // Docker is not installed on this machine, fall back to emulated sandbox contract
-      return await runEmulatedSandbox({ command, timeoutMs, memoryMb });
+      return await runEmulatedSandbox({ command, timeoutMs, memoryMb, archiveBuffer, env });
     }
 
     if (createRes.exitCode !== 0 || !createRes.stdout.trim()) {
@@ -290,7 +396,7 @@ export async function runInSandbox({
         createRes.stderr.includes("error during connect") ||
         createRes.stderr.includes("No such image")
       ) {
-        return await runEmulatedSandbox({ command, timeoutMs, memoryMb });
+        return await runEmulatedSandbox({ command, timeoutMs, memoryMb, archiveBuffer, env });
       }
       throw new Error(`docker create failed: ${createRes.stderr || createRes.stdout}`);
     }

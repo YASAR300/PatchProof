@@ -33,6 +33,20 @@ export function RepositoriesClient({ initialProjects = [] }) {
     router.push(`/app/repositories/${id}`);
   };
 
+  const handleAddDemo = async () => {
+    setIsAddingDemo(true);
+    try {
+      const res = await fetch("/api/repositories/demo", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add demo project");
+      router.push(`/app/repositories/${data.project.id}`);
+      router.refresh();
+    } catch (err) {
+      alert(err.message || "Failed to add demo project");
+      setIsAddingDemo(false);
+    }
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return "Just now";
     try {

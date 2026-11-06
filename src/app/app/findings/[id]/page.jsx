@@ -48,6 +48,11 @@ export default async function FindingDetailPage({ params }) {
           finishedAt: true,
         },
       },
+      verificationRuns: {
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        include: { artifacts: true },
+      },
     },
   });
 

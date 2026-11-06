@@ -834,3 +834,70 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 - `src/app/app/runs/page.jsx` (modified: restored real dynamic database state)
 - `src/app/app/reports/page.jsx` (modified: restored real dynamic database state)
 - `BUILD_LOG.md` (modified)
+
+
+---
+
+## Step 12: Automated Vulnerability Verification Engine (2026-11-05)
+
+### Decisions and assumptions
+1. **Engine Rules & Compatibility Gate (`src/lib/reproducers.js`)**:
+   - Verification only runs when `project.executionEnabled` is `true` and a compatible reproducer is registered for the finding.
+   - Demo mapping: finding `ruleId` for SQL injection in `src/users.py` maps to reproducer `sqli_find_user` (`security/reproducers/sqli_find_user.py` from `demo-manifest.json`).
+   - Otherwise the finding stays `UNVERIFIED` and displays the exact specified message: `"No compatible reproducer is available, so this finding remains unverified."`
+2. **Pure Classification Engine (`src/lib/classify.js`)**:
+   - Formulated as a pure function `classifyRuns(runs)` that evaluates across three deterministic sandbox executions.
+   - `REPRODUCED`: all 3 runs exit 0, `reproduced: true`, and `precondition_ok: true`.
+   - `NOT_REPRODUCED`: all 3 runs exit 0, `reproduced: false`, and `precondition_ok: true`.
+   - `INCONCLUSIVE`: `precondition_ok: false`, results disagree between runs (flaky detection), or final JSON oracle assertion is missing/unparsable.
+   - `EXECUTION_ERROR`: build or setup fails, exit code non-zero, run timed out, or OOM-killed.
+3. **Worker Job Execution (`worker/src/handlers/verify.js` & `worker/src/sandbox.js`)**:
+   - Registered `verify` job type in worker and API route `ALLOWED_JOB_TYPES`.
+   - Resolves target commit reference (supporting demo tags: `baseline`, `fix-good`, `fix-incomplete`, `fix-regression`, `broken-build`).
+   - Exports repository source cleanly with `git archive --format=tar`.
+   - Computes `testVersion = sha256` of reproducer file content.
+   - Executes reproducer 3 times in container sandbox (network disabled, memory 512MB limit, isolated execution). In local environments without Docker daemon, falls back to direct process execution in disposable temp workspaces with identical resource and timeout constraints.
+   - Persists `VerificationRun` with commit, reproducerId, testVersion, status, durations, exit codes, parsed assertions, and environment metadata (image digest, python version, sandbox limits, worker id, docker version).
+   - Stores full execution logs as `EvidenceArtifact` rows of kind `LOG` and `TEST_RESULT` with sha256 and size.
+   - Updates `Finding.verificationState` from latest run.
+   - Records `VERIFICATION_STARTED` and `VERIFICATION_COMPLETED` audit events.
+4. **Web UI Architecture**:
+   - `/app/findings/[id]`:
+     - Added 'Verify' panel with commit/tag selector (`baseline`, `fix-good`, `fix-incomplete`, `fix-regression`, `broken-build`), 'Run verification' button, live progress polling (1.5s), and result badge.
+     - Updated three-part security provenance panel: 'Verified by a test' card fills with the latest run's verdict, testVersion hash, commit SHA, duration, and link to run evidence.
+     - Displays exact compatibility message if no reproducer is registered.
+   - `/app/runs`:
+     - Linear-style table with status icon and badge, finding title, short commit SHA, reproducer name, duration, and started time.
+     - Filters by verification status and finding, with live search and auto-refresh while any run is active.
+   - `/app/runs/[id]`:
+     - Summary header with status and target finding link.
+     - Plain-language explanation banner (with required exact text for `NOT_REPRODUCED`: *"Not reproduced does not automatically mean the finding is a false positive: the test may be incomplete or the environment may not represent the affected conditions."*).
+     - Step timeline (Setup, Run 1, Run 2, Run 3, Verdict).
+     - Expected vs actual behavior card comparison.
+     - Monospace log viewer with line numbers, search filter, copy button, and download button.
+     - Metadata panel (Commit SHA with 1-click copy, test version hash with copy, image digest, sandbox limits, worker ID, runtime).
+     - 'Re-run' button triggering verification job.
+     - 'Reproduce this yourself' code block with exact `git checkout <sha>` and `python security/reproducers/sqli_find_user.py` commands.
+5. **Demo Verification Verification Suite**:
+   - `baseline` -> verified `REPRODUCED` (exit 0, reproduced=true).
+   - `fix-good` -> verified `NOT_REPRODUCED` (exit 0, reproduced=false).
+   - `fix-incomplete` -> verified `REPRODUCED` (exit 0, reproduced=true).
+   - `broken-build` -> verified `EXECUTION_ERROR` (exit 1, unclosed parenthesis syntax error).
+   - Incompatible/non-demo finding -> verified `UNVERIFIED` with exact message *"No compatible reproducer is available, so this finding remains unverified."*.
+
+### Files added / modified
+- `src/lib/classify.js` (added)
+- `src/lib/reproducers.js` (added)
+- `worker/src/handlers/verify.js` (added)
+- `worker/src/index.js` (modified: registered verify handler)
+- `worker/src/sandbox.js` (modified: archive unpacking and isolated execution)
+- `src/app/api/jobs/route.js` (modified: added verify job type)
+- `src/app/app/findings/[id]/page.jsx` (modified: included verification runs in query)
+- `src/app/app/findings/[id]/FindingDetailClient.jsx` (modified: added Verify panel & filled provenance)
+- `src/app/app/runs/page.jsx` (modified: dynamic verification runs table)
+- `src/app/app/runs/RunsClient.jsx` (added)
+- `src/app/app/runs/loading.jsx` (added)
+- `src/app/app/runs/[id]/page.jsx` (added)
+- `src/app/app/runs/[id]/RunDetailClient.jsx` (added)
+- `src/app/app/runs/[id]/loading.jsx` (added)
+- `BUILD_LOG.md` (modified)
