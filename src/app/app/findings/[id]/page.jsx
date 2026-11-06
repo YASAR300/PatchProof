@@ -53,6 +53,14 @@ export default async function FindingDetailPage({ params }) {
         take: 5,
         include: { artifacts: true },
       },
+      patchReports: {
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        include: {
+          baselineRun: true,
+          candidateRun: true,
+        },
+      },
     },
   });
 

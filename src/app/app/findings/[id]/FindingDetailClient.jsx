@@ -22,6 +22,10 @@ import {
   ArrowRight,
   Radar,
   ShieldAlert,
+  GitCompare,
+  FileCheck2,
+  Sparkles,
+  History,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -92,6 +96,117 @@ export function FindingDetailClient({ finding: initialFinding }) {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     };
   }, [activeVerifyJob?.id, router]);
+
+  // Patch Validation State
+  const lastReproducedRun = finding.verificationRuns?.find(
+    (r) => r.status === "REPRODUCED"
+  );
+  const initialBaseline = lastReproducedRun?.commitSha ? "baseline" : "baseline";
+  const [baselineCommit, setBaselineCommit] = useState(initialBaseline);
+  const [candidateCommit, setCandidateCommit] = useState("fix-good");
+  const [activePreset, setActivePreset] = useState("Good fix");
+  const [isValidatingPatch, setIsValidatingPatch] = useState(false);
+  const [activePatchJob, setActivePatchJob] = useState(null);
+  const [showPatchLogs, setShowPatchLogs] = useState(true);
+  const patchPollTimerRef = useRef(null);
+
+  const SCENARIO_PRESETS = [
+    {
+      name: "Good fix",
+      baseline: "baseline",
+      candidate: "fix-good",
+      description: "Clean parameterized fix, tests pass, exploit neutralized",
+    },
+    {
+      name: "Incomplete fix",
+      baseline: "baseline",
+      candidate: "fix-incomplete",
+      description: "Bypassable uppercase filter, vulnerability still reproduces",
+    },
+    {
+      name: "Breaks a feature",
+      baseline: "baseline",
+      candidate: "fix-regression",
+      description: "Exploit blocked but breaks apostrophes in O'Brien",
+    },
+    {
+      name: "Broken build",
+      baseline: "baseline",
+      candidate: "broken-build",
+      description: "Syntax error in users.py prevents compilation",
+    },
+    {
+      name: "Unreliable baseline",
+      baseline: "fix-good",
+      candidate: "fix-incomplete",
+      description: "Baseline is already fixed; comparison is inconclusive",
+    },
+  ];
+
+  const applyPreset = (preset) => {
+    setActivePreset(preset.name);
+    setBaselineCommit(preset.baseline);
+    setCandidateCommit(preset.candidate);
+  };
+
+  // Poll active patch-validate job every 1.5 seconds
+  useEffect(() => {
+    if (!activePatchJob?.id) return;
+
+    patchPollTimerRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/jobs/${activePatchJob.id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.ok && data.job) {
+          setActivePatchJob(data.job);
+          if (
+            data.job.status === "SUCCEEDED" ||
+            data.job.status === "FAILED" ||
+            data.job.status === "CANCELED"
+          ) {
+            setIsValidatingPatch(false);
+            if (patchPollTimerRef.current) clearInterval(patchPollTimerRef.current);
+            router.refresh();
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+    }, 1500);
+
+    return () => {
+      if (patchPollTimerRef.current) clearInterval(patchPollTimerRef.current);
+    };
+  }, [activePatchJob?.id, router]);
+
+  const handleTriggerPatchValidate = async () => {
+    setIsValidatingPatch(true);
+    setShowPatchLogs(true);
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "patch-validate",
+          projectId: project?.id,
+          payload: {
+            findingId: finding.id,
+            baselineCommit,
+            candidateCommit,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to trigger patch validation job.");
+      if (data.ok && data.job) {
+        setActivePatchJob(data.job);
+      }
+    } catch (err) {
+      alert(err.message || "Failed to start patch validation.");
+      setIsValidatingPatch(false);
+    }
+  };
 
   const handleTriggerVerify = async () => {
     setIsVerifying(true);
@@ -385,6 +500,229 @@ export function FindingDetailClient({ finding: initialFinding }) {
                   <ArrowRight className="w-3 h-3" />
                 </Link>
               </CardContent>
+            )}
+          </>
+        )}
+      </Card>
+
+      {/* Validate a Patch Panel */}
+      <Card className="border-border">
+        <CardHeader className="py-3 px-4 border-b border-border/60">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <GitCompare className="w-4 h-4 text-accent" />
+              <div>
+                <CardTitle className="text-sm font-medium text-text">Validate a candidate patch</CardTitle>
+                <CardDescription className="text-xs">
+                  Proves exploit neutralization and verifies existing test suites to prevent side-effect regressions.
+                </CardDescription>
+              </div>
+            </div>
+            {compatibility.compatible && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleTriggerPatchValidate}
+                disabled={isValidatingPatch}
+              >
+                {isValidatingPatch ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    Validating patch...
+                  </>
+                ) : (
+                  <>
+                    <FileCheck2 className="w-3.5 h-3.5 mr-1.5" />
+                    Validate patch
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+
+        {compatibility.compatible && (
+          <>
+            {/* Scenario Presets for Demo */}
+            <div className="p-3.5 px-4 bg-surface-raised/20 border-b border-border/60 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-accent" />
+                  Scenario Presets
+                </span>
+                <span className="text-[11px] text-text-tertiary font-mono">
+                  {SCENARIO_PRESETS.find((p) => p.name === activePreset)?.description || ""}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {SCENARIO_PRESETS.map((preset) => {
+                  const isSelected = activePreset === preset.name;
+                  return (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => applyPreset(preset)}
+                      disabled={isValidatingPatch}
+                      className={`px-2.5 py-1 rounded-[5px] text-xs transition-colors border font-sans cursor-pointer ${
+                        isSelected
+                          ? "bg-accent/15 border-accent text-accent font-medium shadow-sm"
+                          : "bg-surface hover:bg-surface-hover border-border text-text-secondary hover:text-text"
+                      }`}
+                    >
+                      {preset.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Baseline and Candidate Selectors */}
+            <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-surface/40">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="baseline-commit-select"
+                  className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block"
+                >
+                  Baseline commit (Vulnerable Target)
+                </label>
+                <select
+                  id="baseline-commit-select"
+                  value={baselineCommit}
+                  onChange={(e) => {
+                    setBaselineCommit(e.target.value);
+                    setActivePreset("");
+                  }}
+                  disabled={isValidatingPatch}
+                  className="w-full h-8 px-2.5 rounded-[6px] border border-border bg-surface text-xs font-mono text-text outline-none focus:border-accent cursor-pointer"
+                >
+                  <option value="baseline">tag: baseline (vulnerable SQLi)</option>
+                  <option value="fix-good">tag: fix-good (parameterized fix)</option>
+                  <option value="fix-incomplete">tag: fix-incomplete (bypassable)</option>
+                  <option value="fix-regression">tag: fix-regression (broken O&apos;Brien)</option>
+                  <option value="broken-build">tag: broken-build (syntax error)</option>
+                </select>
+                <p className="text-[11px] text-text-tertiary">
+                  Expected to reproduce the vulnerability to establish a solid baseline.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="candidate-commit-select"
+                  className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider block"
+                >
+                  Candidate commit (Proposed Fix)
+                </label>
+                <select
+                  id="candidate-commit-select"
+                  value={candidateCommit}
+                  onChange={(e) => {
+                    setCandidateCommit(e.target.value);
+                    setActivePreset("");
+                  }}
+                  disabled={isValidatingPatch}
+                  className="w-full h-8 px-2.5 rounded-[6px] border border-border bg-surface text-xs font-mono text-text outline-none focus:border-accent cursor-pointer"
+                >
+                  <option value="fix-good">tag: fix-good (parameterized fix)</option>
+                  <option value="fix-incomplete">tag: fix-incomplete (bypassable)</option>
+                  <option value="fix-regression">tag: fix-regression (broken O&apos;Brien)</option>
+                  <option value="broken-build">tag: broken-build (syntax error)</option>
+                  <option value="baseline">tag: baseline (vulnerable SQLi)</option>
+                </select>
+                <p className="text-[11px] text-text-tertiary">
+                  Proposed patch commit to test for neutralization and regression freedom.
+                </p>
+              </div>
+            </CardContent>
+
+            {/* Active Patch Validation Progress & Live Logs */}
+            {activePatchJob && (
+              <CardContent className="p-4 space-y-3 bg-surface-raised/30 border-t border-border/60">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {isValidatingPatch ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                    ) : activePatchJob.status === "SUCCEEDED" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-400" />
+                    )}
+                    <span className="font-medium text-text">
+                      Patch Validation Job #{activePatchJob.id.slice(-8)} is {activePatchJob.status}
+                    </span>
+                    {activePatchJob.result?.verdict && (
+                      <StatusBadge status={activePatchJob.result.verdict} size="sm" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {activePatchJob.result?.patchReportId && (
+                      <Link
+                        href={`/app/reports/${activePatchJob.result.patchReportId}`}
+                        className="text-accent hover:underline text-xs flex items-center gap-1 font-medium"
+                      >
+                        <span>View patch report</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowPatchLogs(!showPatchLogs)}
+                      className="text-text-secondary hover:text-text text-[11px] font-mono flex items-center gap-1"
+                    >
+                      <Terminal className="w-3 h-3" />
+                      {showPatchLogs ? "Hide logs" : "View logs"}
+                    </button>
+                  </div>
+                </div>
+
+                {showPatchLogs && activePatchJob.logs && (
+                  <pre className="p-3 rounded-[6px] bg-[#080809] border border-border/80 font-mono text-[11px] text-text-secondary max-h-48 overflow-y-auto leading-relaxed select-text">
+                    {activePatchJob.logs}
+                  </pre>
+                )}
+              </CardContent>
+            )}
+
+            {/* Recent Reports for this Finding */}
+            {finding.patchReports && finding.patchReports.length > 0 && (
+              <div className="border-t border-border/60 p-4 space-y-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-text-tertiary flex items-center gap-1.5">
+                  <History className="w-3 h-3 text-text-tertiary" />
+                  Generated Patch Reports
+                </div>
+                <div className="divide-y divide-border/40 rounded-[6px] border border-border/60 overflow-hidden bg-surface">
+                  {finding.patchReports.map((report) => (
+                    <div
+                      key={report.id}
+                      className="p-2.5 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs hover:bg-surface-hover transition-colors"
+                    >
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <StatusBadge status={report.verdict} size="sm" />
+                        <span className="font-mono text-[11px] text-text-secondary">
+                          {report.baselineCommit.slice(0, 7)} → {report.candidateCommit.slice(0, 7)}
+                        </span>
+                        {report.summary && (
+                          <span className="text-text-tertiary truncate text-[11px]">
+                            {report.summary}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="text-[11px] font-mono text-text-tertiary">
+                          {formatDate(report.createdAt)}
+                        </span>
+                        <Link
+                          href={`/app/reports/${report.id}`}
+                          className="text-accent hover:underline text-xs font-medium flex items-center gap-1"
+                        >
+                          <span>Report</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </>
         )}

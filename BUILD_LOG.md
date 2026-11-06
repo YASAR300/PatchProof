@@ -901,3 +901,66 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 - `src/app/app/runs/[id]/RunDetailClient.jsx` (added)
 - `src/app/app/runs/[id]/loading.jsx` (added)
 - `BUILD_LOG.md` (modified)
+
+
+---
+
+## Step 13: Automated Patch Validation Engine & Patch Reports (2026-11-06)
+
+### Decisions and assumptions
+1. **Patch Validation Precedence Hierarchy (`src/lib/verdict.js`)**:
+   - Implemented as a pure function `decidePatchVerdict({ baselineRun, candidateRun, baselineRegression, candidateRegression, newFailures })` with strict evaluation precedence:
+     1. Any `EXECUTION_ERROR` in either security run or candidate regression run -> `EXECUTION_ERROR`.
+     2. Baseline security status is not `REPRODUCED` -> `INCONCLUSIVE`, with the exact required explanation: *"The vulnerable baseline did not reproduce the issue, so the comparison is not reliable."*
+     3. Candidate security status is `REPRODUCED` -> `PATCH_NOT_VERIFIED`.
+     4. Candidate security status is `INCONCLUSIVE` -> `INCONCLUSIVE`.
+     5. Candidate is `NOT_REPRODUCED` but at least one regression test fails only on the candidate -> `REGRESSION_FAILURE`.
+     6. Candidate is `NOT_REPRODUCED` and no new regression failures -> `FIX_VERIFIED`, always worded *"Fix verified for tested cases"*, never as a guarantee of security.
+   - Enforced the exact evaluation scope notice constant `LIMITATIONS_NOTICE`: *"Verified for the tested cases only. Additional input cases and broader authorization checks have not been evaluated."*
+2. **Worker Job Execution (`worker/src/handlers/patch-validate.js`)**:
+   - Registered `'patch-validate'` job type in `worker/src/index.js` and `src/app/api/jobs/route.js`.
+   - Step 1: Executes security reproducer on baseline and candidate commits (3 isolated sandbox runs each) and records both `VerificationRun` database rows and log/test result artifacts.
+   - Step 2: Executes regression test suite (`python -m unittest discover -v tests` from `demo-manifest.json`) in the sandbox on both candidate and baseline. Parses individual test names and outcomes (`worker/src/regression.js`). A regression failure counts *only* if a test passed on baseline but fails on candidate.
+   - Step 3: Computes code diff (`git diff baseline..candidate`) and file stats (`worker/src/diff.js`) and persists full diff as an `EvidenceArtifact` of kind `DIFF` with sha256 checksum.
+   - Step 4: Evaluates verdict using `decidePatchVerdict`.
+   - Step 5: Creates `PatchReport` record. If verdict is `FIX_VERIFIED` and finding `triageStatus` is `OPEN`, updates `triageStatus` to `FIXED`. Emits `PATCH_VALIDATION_STARTED` and `PATCH_VALIDATION_COMPLETED` audit events.
+3. **Web UI Architecture**:
+   - `/app/findings/[id]`:
+     - Added 'Validate a candidate patch' panel with baseline commit selector (defaulting to commit where finding was last reproduced) and candidate selector.
+     - Interactive scenario presets for demo testing: 'Good fix', 'Incomplete fix', 'Breaks a feature', 'Broken build', and 'Unreliable baseline'.
+     - Live progress streaming with job logs, real-time status banner, and link to resulting report.
+     - Historical list of generated patch reports for the finding.
+   - `/app/reports`:
+     - Linear-style table listing reports with verdict status badges, target finding title, comparison commit short SHAs (`9d13f9f → da17102`), creation date, and reviewer decision placeholder (`—`).
+     - Live search filter (by title, rule, commit SHA) and verdict dropdown filter with active filter reset.
+   - `/app/reports/[id]`:
+     - Header with verdict badge, summary, and finding backlink.
+     - Scope limitations callout with exact required notice text.
+     - Verification matrix table with rows: `'Security reproducer'`, `'Normal functionality'`, and `'Result'` against columns `'Vulnerable Version'` and `'Candidate Patch'`.
+     - Side-effect regressions card displaying failed test names and failure tracebacks.
+     - Direct links to both execution run logs.
+     - Syntax-highlighted diff viewer with file stats, line-by-line additions/deletions, and 1-click copy.
+     - 'Reproduce this verdict yourself' terminal code block with 1-click copy.
+4. **All 5 Demo Scenarios Verified**:
+   - `baseline` vs `fix-good` ➔ `FIX_VERIFIED` (`Fix verified for tested cases`)
+   - `baseline` vs `fix-incomplete` ➔ `PATCH_NOT_VERIFIED`
+   - `baseline` vs `fix-regression` ➔ `REGRESSION_FAILURE` (`test_apostrophe_name_obrien_works` identified)
+   - `baseline` vs `broken-build` ➔ `EXECUTION_ERROR`
+   - `fix-good` vs `fix-incomplete` ➔ `INCONCLUSIVE` (*"The vulnerable baseline did not reproduce the issue, so the comparison is not reliable."*)
+
+### Files added / modified
+- `src/lib/verdict.js` (added)
+- `worker/src/diff.js` (added)
+- `worker/src/regression.js` (added)
+- `worker/src/handlers/patch-validate.js` (added)
+- `worker/src/handlers/verify.js` (modified: exported modular `executeVerificationForCommit`)
+- `worker/src/index.js` (modified: registered `patch-validate` handler)
+- `src/app/api/jobs/route.js` (modified: registered `patch-validate` in allowed job types)
+- `src/app/app/findings/[id]/page.jsx` (modified: included `patchReports` in finding query)
+- `src/app/app/findings/[id]/FindingDetailClient.jsx` (modified: added Validate a patch panel & presets)
+- `src/app/app/reports/page.jsx` (modified: dynamic database query for patch reports)
+- `src/app/app/reports/ReportsClient.jsx` (added)
+- `src/app/app/reports/[id]/page.jsx` (added)
+- `src/app/app/reports/[id]/ReportDetailClient.jsx` (added)
+- `src/app/app/reports/[id]/loading.jsx` (added)
+- `BUILD_LOG.md` (modified)

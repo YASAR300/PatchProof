@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/auth";
 import { prisma } from "@/lib/db";
 
-const ALLOWED_JOB_TYPES = ["selftest", "scan", "dependency-scan", "verify"];
+const ALLOWED_JOB_TYPES = ["selftest", "scan", "dependency-scan", "verify", "patch-validate"];
 
 /**
  * GET /api/jobs?limit=&type=
