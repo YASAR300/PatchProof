@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/auth";
 import { prisma } from "@/lib/db";
 import { requireProjectRole } from "@/lib/projects";
+import { buildEvidenceDocument } from "@/lib/report";
 import { ReportDetailClient } from "./ReportDetailClient";
 
 export async function generateMetadata({ params }) {
@@ -49,6 +50,8 @@ export default async function ReportDetailPage({ params }) {
   // Ensure user has membership/access to project
   await requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
 
-  return <ReportDetailClient report={report} />;
+  const doc = buildEvidenceDocument(report);
+
+  return <ReportDetailClient report={report} doc={doc} />;
 }
 

@@ -964,3 +964,62 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 - `src/app/app/reports/[id]/ReportDetailClient.jsx` (added)
 - `src/app/app/reports/[id]/loading.jsx` (added)
 - `BUILD_LOG.md` (modified)
+
+---
+
+## Step 14: Verifiable Patch Evidence Reports & Cryptographic Integrity (2026-11-06)
+
+### Decisions and assumptions
+1. **Structured Evidence Document Model (`src/lib/report.js`)**:
+   - Implemented `buildEvidenceDocument(patchReport)` assembling a deterministic, versioned evidence document (`schemaVersion: 1`) from the database:
+     - `schemaVersion: 1`, report metadata (`id`, `createdAt`, `verdict`, `summary`).
+     - `project`: name, slug, repoUrl, defaultBranch with provenance `scanner`.
+     - `finding`: scanner tool (`semgrep`), ruleId, title, severity, file path, line numbers, code snippet, cwe, and source (`SCANNER`) with provenance `scanner`.
+     - `commits`: full 40-character SHAs (`baselineCommit`, `candidateCommit`) with provenance `test`.
+     - `environment`: container sandbox metadata (image digest, python version, sandbox isolation limits: network `none`, memory `512MB`, worker ID) with provenance `test`.
+     - `tests`: security reproducer ID, reproducer test version (SHA-256 digest), and regression test suite command and passing counts with provenance `test`.
+     - `resultsMatrix`: verification rows comparing baseline vs candidate with provenance `test`.
+     - `regressions`: new failure breakdown with names and traces with provenance `test`.
+     - `diff`: file-level stat (files changed, insertions, deletions) and diff SHA-256 checksum with provenance `test`.
+     - `logs`: sandbox execution log excerpts (first 40 and last 40 lines per run, omitting middle lines with clear count notice) for both baseline and candidate runs with provenance `test`.
+     - `aiAnalysis`: marked strictly with provenance `ai` and status `"not generated"` (`content: null`).
+     - `limitations`: evaluation scope notice and the mandatory fixed sentence: *"This report describes what was tested and what the results demonstrated. It is not a guarantee that the software is secure."* with provenance `test`.
+     - `reproduction`: reproducible bash script (`git checkout`, `git diff`, `python ...`) with provenance `test`.
+     - `provenanceLegend`: definitions for `[Scanner]`, `[Test-verified]`, and `[AI-generated]`.
+     - `artifacts`: list of all stored artifacts with their name, kind, size, and SHA-256 digest.
+   - Deterministic canonical JSON serialization (`canonicalJsonStringify`) with lexicographically sorted object keys to compute the canonical report hash (`computeSha256`).
+2. **Cryptographic Integrity & Verification (`verifyReportIntegrity`)**:
+   - Computes SHA-256 digests over raw artifact contents and verifies them against the stored database digests.
+   - Added `POST /api/reports/[id]/verify` endpoint and interactive 'Verify integrity' button in the report UI that displays PASS/FAIL indicators per artifact.
+3. **Multi-Format Export Endpoints**:
+   - `GET /api/reports/[id]/export?format=json`: Generates and serves structured canonical evidence JSON with `Content-Disposition: attachment; filename="patchproof-report-${id}.json"`.
+   - `GET /api/reports/[id]/export?format=md`: Generates clean GitHub-flavored Markdown with `Content-Disposition: attachment; filename="patchproof-report-${id}.md"`, complete with section headers, provenance badges, tables, diff, reproduction commands, and mandatory disclaimer.
+   - Strict Access Control: Both export endpoints and integrity verification require an active user session (`getSessionUser`) and project membership (`requireProjectRole`). Requests from unauthenticated users yield HTTP 401; requests from non-members yield HTTP 403.
+4. **Print-Optimized Document Page (`/app/reports/[id]/print`)**:
+   - Dedicated print page with monochrome, typography-optimized A4 layout.
+   - Bypasses sidebar and application navigation shell (`AppShell.jsx` print route detection).
+   - Embedded `@media print` and `@page` rules enforcing A4 portrait size, 14mm margins, readable monochrome code boxes, and section page breaks (`print-page-break`).
+   - Floating no-print toolbar with 'Back to Report' and 'Download PDF' button invoking `window.print()`.
+5. **Web UI Polish (`/app/reports/[id]`)**:
+   - Export dropdown button supporting JSON, Markdown, and Print / PDF actions.
+   - Provenance classification legend displaying the three color-coded provenance tags:
+     - `[Scanner]` (blue)
+     - `[Test-verified]` (green)
+     - `[AI-generated]` (purple)
+   - Every section is tagged with its respective provenance badge.
+   - Execution Logs Excerpts section displaying first and last 40 lines of baseline and candidate runs.
+   - AI section marked `not generated`.
+   - Interactive Cryptographic Evidence Integrity panel with copyable canonical document hash and per-artifact PASS/FAIL check.
+
+### Files added / modified
+- `src/lib/report.js` (added: canonical JSON serialization, document assembly, log excerpt extractor, integrity verifier, Markdown generator)
+- `src/app/api/reports/[id]/export/route.js` (added: authenticated JSON and Markdown download endpoint with 401/403 authorization)
+- `src/app/api/reports/[id]/verify/route.js` (added: cryptographic artifact integrity verification API)
+- `src/app/app/reports/[id]/print/page.jsx` (added: server page fetching and assembling evidence document)
+- `src/app/app/reports/[id]/print/PrintReportClient.jsx` (added: monochrome A4 print view with page breaks and Download PDF)
+- `src/app/app/reports/[id]/page.jsx` (modified: passes structured evidence document to client)
+- `src/app/app/reports/[id]/ReportDetailClient.jsx` (modified: added Export menu, Provenance legend, section badges, log excerpts, and integrity verification)
+- `src/components/app/AppShell.jsx` (modified: print route passthrough to omit sidebar and topbar)
+- `scripts/verify-step14.mjs` (added: automated engine and integrity verification test)
+- `BUILD_LOG.md` (modified)
+

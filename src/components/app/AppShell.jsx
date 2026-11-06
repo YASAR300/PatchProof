@@ -161,6 +161,14 @@ export function AppShell({ children, user, activeProject, userProjects = [] }) {
     },
   ];
 
+  if (pathname?.endsWith("/print")) {
+    return (
+      <div className="min-h-screen bg-white text-black font-sans">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div
       className="min-h-screen bg-background text-text font-sans flex flex-col md:flex-row"
