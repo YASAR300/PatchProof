@@ -56,6 +56,7 @@ export function FindingDetailClient({ finding: initialFinding }) {
   const latestRun = finding.verificationRuns?.[0] || null;
 
   const [selectedTag, setSelectedTag] = useState("baseline");
+  const tagSelectRef = useRef(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [activeVerifyJob, setActiveVerifyJob] = useState(null);
   const [showVerifyLogs, setShowVerifyLogs] = useState(true);
@@ -95,6 +96,7 @@ export function FindingDetailClient({ finding: initialFinding }) {
   const handleTriggerVerify = async () => {
     setIsVerifying(true);
     setShowVerifyLogs(true);
+    const chosenTag = tagSelectRef.current?.value || selectedTag || "baseline";
     try {
       const res = await fetch("/api/jobs", {
         method: "POST",
@@ -105,7 +107,7 @@ export function FindingDetailClient({ finding: initialFinding }) {
           payload: {
             findingId: finding.id,
             targetRef: compatibility.compatible
-              ? selectedTag
+              ? chosenTag
               : (finding.commitSha || project?.defaultBranch || "HEAD"),
           },
         }),
@@ -264,6 +266,9 @@ export function FindingDetailClient({ finding: initialFinding }) {
             {compatibility.compatible && (
               <div className="flex items-center gap-2 flex-wrap">
                 <select
+                  ref={tagSelectRef}
+                  id="verify-tag-select"
+                  name="verify-tag-select"
                   value={selectedTag}
                   onChange={(e) => setSelectedTag(e.target.value)}
                   disabled={isVerifying}

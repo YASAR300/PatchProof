@@ -29,16 +29,18 @@ function formatRelativeTime(dateStr) {
 
 export function RunsClient({ initialRuns = [], projectFindings = [], activeProject = null }) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [findingFilter, setFindingFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Live auto-refresh while any run is active or pending
   useEffect(() => {
-    const hasActiveRun = initialRuns.some(
-      (r) => r.status === "UNVERIFIED" || !r.finishedAt
-    );
+    setMounted(true);
+  }, []);
 
+  // Live auto-refresh only while a verification run is actively in-progress
+  useEffect(() => {
+    const hasActiveRun = initialRuns.some((r) => r && !r.finishedAt);
     if (!hasActiveRun) return;
 
     const interval = setInterval(() => {
@@ -49,30 +51,34 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
   }, [initialRuns, router]);
 
   const filteredRuns = useMemo(() => {
-    return initialRuns.filter((run) => {
+    return (initialRuns || []).filter((run) => {
+      if (!run) return false;
+
       // Status filter
       if (statusFilter !== "ALL") {
-        const s = (run.status || "").toUpperCase();
-        if (s !== statusFilter.toUpperCase()) {
+        const s = String(run.status || "").trim().toUpperCase();
+        const target = String(statusFilter).trim().toUpperCase();
+        if (s !== target) {
           return false;
         }
       }
 
       // Finding filter
       if (findingFilter !== "ALL") {
-        const runFindingId = run.findingId || run.finding?.id;
-        if (runFindingId !== findingFilter) {
+        const runFindingId = String(run.findingId || run.finding?.id || "").trim();
+        const targetFindingId = String(findingFilter).trim();
+        if (runFindingId !== targetFindingId) {
           return false;
         }
       }
 
       // Search filter
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesFinding = run.finding?.title?.toLowerCase().includes(q);
-        const matchesCommit = run.commitSha?.toLowerCase().includes(q);
-        const matchesReproducer = run.reproducerId?.toLowerCase().includes(q);
-        const matchesId = run.id?.toLowerCase().includes(q);
+        const q = searchQuery.toLowerCase().trim();
+        const matchesFinding = (run.finding?.title || "").toLowerCase().includes(q);
+        const matchesCommit = (run.commitSha || "").toLowerCase().includes(q);
+        const matchesReproducer = (run.reproducerId || "").toLowerCase().includes(q);
+        const matchesId = (run.id || "").toLowerCase().includes(q);
         if (!matchesFinding && !matchesCommit && !matchesReproducer && !matchesId) {
           return false;
         }
@@ -128,10 +134,11 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
 
           {/* Status Filter */}
           <select
+            id="status-filter-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             aria-label="Filter by verdict status"
-            className="h-8 px-2.5 rounded-[5px] border border-border bg-surface text-xs text-text outline-none focus:border-accent cursor-pointer"
+            className="h-8 px-2.5 rounded-[5px] border border-border bg-surface text-xs text-text outline-none focus:border-accent cursor-pointer font-medium"
           >
             <option value="ALL">All Verdicts</option>
             <option value="REPRODUCED">Reproduced</option>
@@ -143,10 +150,11 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
           {/* Finding Filter */}
           {projectFindings.length > 0 && (
             <select
+              id="finding-filter-select"
               value={findingFilter}
               onChange={(e) => setFindingFilter(e.target.value)}
               aria-label="Filter by finding"
-              className="h-8 px-2.5 rounded-[5px] border border-border bg-surface text-xs text-text outline-none focus:border-accent max-w-[220px] truncate cursor-pointer"
+              className="h-8 px-2.5 rounded-[5px] border border-border bg-surface text-xs text-text outline-none focus:border-accent max-w-[260px] truncate cursor-pointer font-medium"
             >
               <option value="ALL">All Findings</option>
               {projectFindings.map((f) => (
@@ -200,9 +208,9 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
           {/* Table Header */}
           <div className="grid grid-cols-12 gap-2 px-3.5 py-2.5 bg-surface-raised/40 text-[11px] font-mono text-text-tertiary select-none">
             <div className="col-span-3 sm:col-span-2">Verdict</div>
-            <div className="col-span-5 sm:col-span-4">Finding Title</div>
+            <div className="col-span-5 sm:col-span-5">Finding Title</div>
             <div className="col-span-2 sm:col-span-2">Commit</div>
-            <div className="col-span-2 hidden sm:block">Reproducer</div>
+            <div className="col-span-1 hidden sm:block">Reproducer</div>
             <div className="col-span-1 hidden sm:block">Duration</div>
             <div className="col-span-2 sm:col-span-1 text-right">Started</div>
           </div>
@@ -219,9 +227,9 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
                 <StatusBadge status={run.status} size="sm" />
               </div>
 
-              {/* Finding Title */}
-              <div className="col-span-5 sm:col-span-4 truncate">
-                <span className="font-medium text-text group-hover:text-accent transition-colors truncate block" title={run.finding?.title || "Finding"}>
+              {/* Finding Title - Roomy with full title tooltip */}
+              <div className="col-span-5 sm:col-span-5 truncate" title={run.finding?.title || "Finding"}>
+                <span className="font-medium text-text group-hover:text-accent transition-colors truncate block">
                   {run.finding?.title || "Vulnerability Finding"}
                 </span>
                 <span className="text-[11px] font-mono text-text-tertiary truncate block">
@@ -236,7 +244,7 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
               </div>
 
               {/* Reproducer */}
-              <div className="col-span-2 hidden sm:block font-mono text-[11px] text-text-tertiary truncate">
+              <div className="col-span-1 hidden sm:block font-mono text-[11px] text-text-tertiary truncate" title={run.reproducerId || "sqli_find_user"}>
                 {run.reproducerId || "sqli_find_user"}
               </div>
 
@@ -250,7 +258,7 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
                 className="col-span-2 sm:col-span-1 text-right font-mono text-[11px] text-text-tertiary truncate"
                 suppressHydrationWarning
               >
-                {formatRelativeTime(run.startedAt || run.createdAt)}
+                {mounted ? formatRelativeTime(run.startedAt || run.createdAt) : "—"}
               </div>
             </Link>
           ))}

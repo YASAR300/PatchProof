@@ -88,10 +88,38 @@ export async function handleVerify(job, { appendLog }) {
   if (isDemoProject) {
     const demoRepoPath = path.resolve(process.env.DEMO_REPO_PATH || "./.data/demo-target");
     if (!fs.existsSync(demoRepoPath)) {
-      throw new Error(`Demo target repository not found at '${demoRepoPath}'.`);
+      await appendLog(`Demo repository not found at '${demoRepoPath}'. Initializing on demand...`);
+      const buildScript = path.resolve(process.cwd(), "scripts/build-demo-repo.mjs");
+      if (fs.existsSync(buildScript)) {
+        try {
+          await execFileAsync("node", [buildScript]);
+          await appendLog(`Demo target repository built successfully at '${demoRepoPath}'.`);
+        } catch (buildErr) {
+          throw new Error(`Failed to initialize demo target repository: ${buildErr.message}`);
+        }
+      } else {
+        throw new Error(`Demo target repository not found at '${demoRepoPath}'.`);
+      }
     }
 
-    // Resolve ref to exact 40-char commit SHA
+    // Map tag names (e.g. baseline, fix-good, broken-build) directly from demo-manifest.json
+    const manifestPath = path.resolve(process.cwd(), "demo-manifest.json");
+    if (fs.existsSync(manifestPath)) {
+      try {
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+        const tagObj = manifest.tags?.find(
+          (t) => t.name === actualCommitSha || t.sha === actualCommitSha
+        );
+        if (tagObj) {
+          actualCommitSha = tagObj.sha;
+          await appendLog(`Mapped tag '${tagObj.name}' to commit SHA ${actualCommitSha.slice(0, 7)}`);
+        }
+      } catch (err) {
+        console.warn("[verify] Failed to read demo-manifest.json:", err.message);
+      }
+    }
+
+    // Resolve ref to exact 40-char commit SHA via git rev-parse if not already 40 chars
     try {
       const { stdout: shaOut } = await execFileAsync("git", ["-C", demoRepoPath, "rev-parse", actualCommitSha]);
       actualCommitSha = shaOut.trim();
