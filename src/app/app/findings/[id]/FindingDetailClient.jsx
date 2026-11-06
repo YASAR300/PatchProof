@@ -104,7 +104,9 @@ export function FindingDetailClient({ finding: initialFinding }) {
           projectId: project?.id,
           payload: {
             findingId: finding.id,
-            targetRef: project?.isDemo ? selectedTag : (finding.commitSha || project?.defaultBranch || "HEAD"),
+            targetRef: compatibility.compatible
+              ? selectedTag
+              : (finding.commitSha || project?.defaultBranch || "HEAD"),
           },
         }),
       });
@@ -261,24 +263,19 @@ export function FindingDetailClient({ finding: initialFinding }) {
 
             {compatibility.compatible && (
               <div className="flex items-center gap-2 flex-wrap">
-                {project?.isDemo ? (
-                  <select
-                    value={selectedTag}
-                    onChange={(e) => setSelectedTag(e.target.value)}
-                    disabled={isVerifying}
-                    className="h-8 px-2.5 rounded-[6px] border border-border bg-surface text-xs font-mono text-text outline-none focus:border-accent"
-                  >
-                    <option value="baseline">tag: baseline (vulnerable SQLi)</option>
-                    <option value="fix-good">tag: fix-good (parameterized fix)</option>
-                    <option value="fix-incomplete">tag: fix-incomplete (bypassable)</option>
-                    <option value="fix-regression">tag: fix-regression (broken O&apos;Brien)</option>
-                    <option value="broken-build">tag: broken-build (syntax error)</option>
-                  </select>
-                ) : (
-                  <span className="text-xs font-mono text-text-secondary px-2 py-1 rounded bg-surface-raised border border-border">
-                    {finding.commitSha?.slice(0, 7) || "HEAD"}
-                  </span>
-                )}
+                <select
+                  value={selectedTag}
+                  onChange={(e) => setSelectedTag(e.target.value)}
+                  disabled={isVerifying}
+                  aria-label="Select target tag or commit"
+                  className="h-8 px-2.5 rounded-[6px] border border-border bg-surface text-xs font-mono text-text outline-none focus:border-accent cursor-pointer"
+                >
+                  <option value="baseline">tag: baseline (vulnerable SQLi)</option>
+                  <option value="fix-good">tag: fix-good (parameterized fix)</option>
+                  <option value="fix-incomplete">tag: fix-incomplete (bypassable)</option>
+                  <option value="fix-regression">tag: fix-regression (broken O&apos;Brien)</option>
+                  <option value="broken-build">tag: broken-build (syntax error)</option>
+                </select>
 
                 <Button
                   variant="primary"

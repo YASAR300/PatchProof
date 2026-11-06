@@ -6,19 +6,11 @@ import { useRouter } from "next/navigation";
 import {
   Terminal,
   Play,
-  Filter,
   Search,
-  ExternalLink,
-  ChevronRight,
   GitCommit,
-  Clock,
-  ShieldCheck,
-  CheckCircle2,
-  AlertTriangle,
   RefreshCw,
 } from "lucide-react";
 import { PageHeader } from "@/components/app/PageHeader";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
@@ -37,19 +29,13 @@ function formatRelativeTime(dateStr) {
 
 export function RunsClient({ initialRuns = [], projectFindings = [], activeProject = null }) {
   const router = useRouter();
-  const [runs, setRuns] = useState(initialRuns);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [findingFilter, setFindingFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Update local runs if server props update
+  // Live auto-refresh while any run is active or pending
   useEffect(() => {
-    setRuns(initialRuns);
-  }, [initialRuns]);
-
-  // Live auto-refresh while any run is active
-  useEffect(() => {
-    const hasActiveRun = runs.some(
+    const hasActiveRun = initialRuns.some(
       (r) => r.status === "UNVERIFIED" || !r.finishedAt
     );
 
@@ -60,18 +46,24 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [runs, router]);
+  }, [initialRuns, router]);
 
   const filteredRuns = useMemo(() => {
-    return runs.filter((run) => {
+    return initialRuns.filter((run) => {
       // Status filter
-      if (statusFilter !== "ALL" && run.status !== statusFilter) {
-        return false;
+      if (statusFilter !== "ALL") {
+        const s = (run.status || "").toUpperCase();
+        if (s !== statusFilter.toUpperCase()) {
+          return false;
+        }
       }
 
       // Finding filter
-      if (findingFilter !== "ALL" && run.findingId !== findingFilter) {
-        return false;
+      if (findingFilter !== "ALL") {
+        const runFindingId = run.findingId || run.finding?.id;
+        if (runFindingId !== findingFilter) {
+          return false;
+        }
       }
 
       // Search filter
@@ -88,7 +80,7 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
 
       return true;
     });
-  }, [runs, statusFilter, findingFilter, searchQuery]);
+  }, [initialRuns, statusFilter, findingFilter, searchQuery]);
 
   return (
     <div className="space-y-4 font-sans w-full max-w-[1200px] mx-auto">
@@ -102,6 +94,7 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
               size="sm"
               onClick={() => router.refresh()}
               title="Refresh runs"
+              aria-label="Refresh runs"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>
@@ -128,6 +121,7 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search finding, commit, reproducer..."
+              aria-label="Search verification runs"
               className="w-full h-8 pl-8 pr-2.5 rounded-[5px] border border-border bg-surface text-xs text-text placeholder:text-text-tertiary outline-none focus:border-accent"
             />
           </div>
@@ -136,7 +130,8 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-8 px-2.5 rounded-[5px] border border-border bg-surface text-xs text-text outline-none focus:border-accent"
+            aria-label="Filter by verdict status"
+            className="h-8 px-2.5 rounded-[5px] border border-border bg-surface text-xs text-text outline-none focus:border-accent cursor-pointer"
           >
             <option value="ALL">All Verdicts</option>
             <option value="REPRODUCED">Reproduced</option>
@@ -150,12 +145,13 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
             <select
               value={findingFilter}
               onChange={(e) => setFindingFilter(e.target.value)}
-              className="h-8 px-2.5 rounded-[5px] border border-border bg-surface text-xs text-text outline-none focus:border-accent max-w-[200px] truncate"
+              aria-label="Filter by finding"
+              className="h-8 px-2.5 rounded-[5px] border border-border bg-surface text-xs text-text outline-none focus:border-accent max-w-[220px] truncate cursor-pointer"
             >
               <option value="ALL">All Findings</option>
               {projectFindings.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.title.slice(0, 30)}...
+                  {f.title}
                 </option>
               ))}
             </select>
@@ -163,7 +159,7 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
         </div>
 
         <div className="text-[11px] font-mono text-text-tertiary tabular-nums">
-          {filteredRuns.length} run{filteredRuns.length === 1 ? "" : "s"}
+          {filteredRuns.length} of {initialRuns.length} run{initialRuns.length === 1 ? "" : "s"}
         </div>
       </div>
 
@@ -171,20 +167,32 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
       {filteredRuns.length === 0 ? (
         <EmptyState
           icon={<Terminal className="w-4 h-4 text-text-secondary" />}
-          title={runs.length === 0 ? "No verification runs executed yet" : "No matching verification runs"}
+          title={initialRuns.length === 0 ? "No verification runs executed yet" : "No matching verification runs"}
           description={
-            runs.length === 0
+            initialRuns.length === 0
               ? "Open any finding and execute a verification harness in an isolated container sandbox to confirm exploitability."
-              : "Try adjusting your verdict or finding filters."
+              : "No verification runs match your current verdict or finding filter. Try selecting 'All Verdicts' or 'All Findings'."
           }
           action={
-            runs.length === 0 ? (
+            initialRuns.length === 0 ? (
               <Link href="/app/findings">
                 <Button variant="secondary" size="sm">
                   View findings to verify
                 </Button>
               </Link>
-            ) : null
+            ) : (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setStatusFilter("ALL");
+                  setFindingFilter("ALL");
+                  setSearchQuery("");
+                }}
+              >
+                Reset filters
+              </Button>
+            )
           }
         />
       ) : (
@@ -238,7 +246,10 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
               </div>
 
               {/* Started Time */}
-              <div className="col-span-2 sm:col-span-1 text-right font-mono text-[11px] text-text-tertiary truncate">
+              <div
+                className="col-span-2 sm:col-span-1 text-right font-mono text-[11px] text-text-tertiary truncate"
+                suppressHydrationWarning
+              >
                 {formatRelativeTime(run.startedAt || run.createdAt)}
               </div>
             </Link>
@@ -248,4 +259,3 @@ export function RunsClient({ initialRuns = [], projectFindings = [], activeProje
     </div>
   );
 }
-

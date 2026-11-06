@@ -50,6 +50,7 @@ function formatDate(isoStr) {
 export function RunDetailClient({ run }) {
   const router = useRouter();
   const [copiedField, setCopiedField] = useState(null);
+  const [isDownloaded, setIsDownloaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isRerunning, setIsRerunning] = useState(false);
   const [rerunError, setRerunError] = useState("");
@@ -69,7 +70,7 @@ export function RunDetailClient({ run }) {
     navigator.clipboard.writeText(text);
     setCopiedField(fieldName);
     setTimeout(() => {
-      setCopiedField(null);
+      setCopiedField((curr) => (curr === fieldName ? null : curr));
     }, 2000);
   };
 
@@ -83,6 +84,11 @@ export function RunDetailClient({ run }) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+
+    setIsDownloaded(true);
+    setTimeout(() => {
+      setIsDownloaded(false);
+    }, 2000);
   };
 
   const handleRerun = async () => {
@@ -107,8 +113,9 @@ export function RunDetailClient({ run }) {
         throw new Error(data.error || "Failed to trigger re-run.");
       }
 
-      // Route back to runs list or let user know
+      // Navigate back to runs list with refresh
       router.push("/app/runs");
+      router.refresh();
     } catch (err) {
       setRerunError(err.message || "Failed to start verification re-run.");
       setIsRerunning(false);
@@ -456,13 +463,22 @@ export function RunDetailClient({ run }) {
             </CardHeader>
             <CardContent className="space-y-3 text-xs">
               <div>
-                <span className="text-text-tertiary text-[11px]">Commit SHA</span>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-text-tertiary">Commit SHA</span>
+                  {copiedField === "commitSha" && (
+                    <span className="text-emerald-400 font-mono text-[10px] flex items-center gap-0.5">
+                      <Check className="w-3 h-3" /> Copied!
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center justify-between font-mono text-text bg-surface-elevated px-2 py-1 rounded-[4px] mt-0.5 border border-border">
                   <span className="truncate">{run.commitSha || "HEAD"}</span>
                   <button
+                    type="button"
                     onClick={() => copyToClipboard(run.commitSha || "", "commitSha")}
-                    className="text-text-tertiary hover:text-text ml-2 shrink-0"
+                    className="text-text-tertiary hover:text-text ml-2 shrink-0 p-1 rounded hover:bg-surface transition-colors"
                     title="Copy commit SHA"
+                    aria-label="Copy commit SHA"
                   >
                     {copiedField === "commitSha" ? (
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -474,14 +490,23 @@ export function RunDetailClient({ run }) {
               </div>
 
               <div>
-                <span className="text-text-tertiary text-[11px]">Test Version (SHA-256)</span>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-text-tertiary">Test Version (SHA-256)</span>
+                  {copiedField === "testVersion" && (
+                    <span className="text-emerald-400 font-mono text-[10px] flex items-center gap-0.5">
+                      <Check className="w-3 h-3" /> Copied!
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center justify-between font-mono text-text bg-surface-elevated px-2 py-1 rounded-[4px] mt-0.5 border border-border">
                   <span className="truncate">{run.testVersion || "—"}</span>
                   {run.testVersion && (
                     <button
+                      type="button"
                       onClick={() => copyToClipboard(run.testVersion, "testVersion")}
-                      className="text-text-tertiary hover:text-text ml-2 shrink-0"
+                      className="text-text-tertiary hover:text-text ml-2 shrink-0 p-1 rounded hover:bg-surface transition-colors"
                       title="Copy test version hash"
+                      aria-label="Copy test version hash"
                     >
                       {copiedField === "testVersion" ? (
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -543,13 +568,15 @@ export function RunDetailClient({ run }) {
               <span>Reproduce This Yourself</span>
             </CardTitle>
             <button
+              type="button"
               onClick={() => copyToClipboard(reproduceCommands, "reproduceCommands")}
-              className="text-xs text-text-secondary hover:text-text flex items-center gap-1 px-2 py-1 rounded-[4px] bg-surface-elevated border border-border"
+              aria-label="Copy reproduce commands"
+              className="text-xs text-text-secondary hover:text-text flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-surface-elevated border border-border transition-colors"
             >
               {copiedField === "reproduceCommands" ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Copied</span>
+                  <span className="text-emerald-400 font-medium">Copied commands</span>
                 </>
               ) : (
                 <>
@@ -587,12 +614,13 @@ export function RunDetailClient({ run }) {
             <div className="flex flex-wrap items-center gap-2">
               {/* Search box */}
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-text-tertiary absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-text-tertiary absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   placeholder="Filter logs..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  aria-label="Filter execution logs"
                   className="pl-8 pr-3 py-1 text-xs bg-surface-elevated border border-border rounded-[4px] text-text placeholder:text-text-tertiary focus:outline-none focus:border-accent w-36 sm:w-48"
                 />
               </div>
@@ -603,11 +631,12 @@ export function RunDetailClient({ run }) {
                 size="sm"
                 onClick={() => copyToClipboard(rawLogContent, "rawLogs")}
                 className="flex items-center gap-1.5"
+                aria-label="Copy full console logs"
               >
                 {copiedField === "rawLogs" ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-400">Copied</span>
+                    <span className="text-emerald-400 font-medium">Copied</span>
                   </>
                 ) : (
                   <>
@@ -623,9 +652,19 @@ export function RunDetailClient({ run }) {
                 size="sm"
                 onClick={handleDownloadLogs}
                 className="flex items-center gap-1.5"
+                aria-label="Download console log artifact"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download</span>
+                {isDownloaded ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-400 font-medium">Downloaded!</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download</span>
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -669,4 +708,3 @@ export function RunDetailClient({ run }) {
     </div>
   );
 }
-
