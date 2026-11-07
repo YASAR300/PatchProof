@@ -1143,5 +1143,33 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 - `scripts/verify-step16.mjs` (added: automated unit/integration test suite)
 - `BUILD_LOG.md` (modified)
 
+---
+
+## Step 16 Follow-up: Assistant Target Sync & Print/Export Safety Disclaimer Hardening (2026-11-07)
+
+### QA Defects Resolved
+1. **Assistant Dropdown Selection Synchronization (`/app/assistant`)**:
+   - **Problem**: When users or automated browser test drivers changed the visible Finding or Report dropdown, the visual `<select>` label updated, but the selected target ID (`Selected Target ID`) and target preview remained stuck on the initial item.
+   - **Root Cause**: An over-reactive `useEffect` with circular dependencies (`[findings, selectedFindingId]`) was interfering with selection state, and native DOM property changes in automated browsers were not reliably firing React synthetic change events.
+   - **Fix**:
+     - Removed circular dependency in `useEffect` and tied project-level reset strictly to `activeProject?.id` changes via `prevProjectIdRef`.
+     - Attached DOM refs (`findingSelectRef`, `runSelectRef`, `reportSelectRef`) with native `addEventListener('change', ...)` and `addEventListener('input', ...)` hooks to immediately catch and synchronize any external DOM updates.
+     - Updated `getTargetEntityId()` to inspect both state and the DOM select element value, guaranteeing zero discrepancy between visible selection and analysis payload.
+     - Added direct 1-click **Quick Target Selection** cards for all findings, runs, and reports directly beneath the dropdowns for instant, bulletproof target selection.
+2. **Print View Per-Suggestion Warning Banner (`/app/reports/[id]/print`)**:
+   - **Problem**: Searching for `"AI-generated suggestion. Not verified. Review and test before use."` did not match in the loaded print view.
+   - **Root Cause**: The warning text was previously rendered only inside remediation option cards that possessed an explicit `codeSnippet`. Reports without code snippets in their options or with `additionalTests` did not render the banner.
+   - **Fix**:
+     - Placed a prominent amber notice banner (`data-testid="print-ai-safety-warning"`) at the top of Section 6 directly under the heading whenever `doc.aiAnalysis.status === "generated"`.
+     - Placed the notice banner inside every remediation option card and every suggested additional test card.
+     - Ensured fallback notice is rendered even when status is not generated.
+3. **Structured Export Verification (`/api/reports/[id]/export`)**:
+   - Verified both JSON and Markdown export payloads using `scripts/test-export.mjs`.
+   - Added `> ⚠️ **AI-generated suggestion. Not verified. Review and test before use.**` to Section 6 of the exported Markdown report.
+   - Confirmed document canonical SHA-256 integrity hash and mandatory disclaimer are strictly preserved.
+4. **Controlled Invalid AI Key Error Handling**:
+   - Demonstrated that invalid Anthropic API keys cleanly return HTTP 401 client error with structured JSON (`{ error, provider, model }`) and `isAuthError: true` without unhandled 500 crashes (`scripts/verify-ai-errors.mjs`).
+
+
 
 
