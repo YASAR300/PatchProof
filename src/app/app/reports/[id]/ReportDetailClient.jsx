@@ -35,6 +35,7 @@ import { SeverityBadge } from "@/components/ui/SeverityBadge";
 import { Badge } from "@/components/ui/Badge";
 import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import { LIMITATIONS_NOTICE } from "@/lib/verdict";
+import { AiSuggestionCodeBlock } from "@/components/ai/AiSuggestionCodeBlock";
 
 export const FIXED_SECURITY_DISCLAIMER =
   "This report describes what was tested and what the results demonstrated. It is not a guarantee that the software is secure.";
@@ -64,7 +65,7 @@ export function ProvenanceTag({ type }) {
   return null;
 }
 
-export function ReportDetailClient({ report, doc }) {
+export function ReportDetailClient({ report, doc, initialAiExplanation = null }) {
   const router = useRouter();
   const [copiedSha, setCopiedSha] = useState(false);
   const [copiedDiff, setCopiedDiff] = useState(false);
@@ -75,6 +76,11 @@ export function ReportDetailClient({ report, doc }) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [integrityResult, setIntegrityResult] = useState(null);
   const [verifyError, setVerifyError] = useState(null);
+
+  // AI Security Explanation State
+  const [aiExplanation, setAiExplanation] = useState(initialAiExplanation);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiError, setAiError] = useState(null);
 
   const finding = report.finding;
   const project = report.project;
@@ -113,6 +119,36 @@ export function ReportDetailClient({ report, doc }) {
       setVerifyError(err.message || "Failed to verify integrity");
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  const handleGenerateAiExplanation = async () => {
+    setIsGeneratingAi(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "explain-report",
+          entityType: "PatchReport",
+          entityId: report.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to generate AI explanation (${res.status})`);
+      }
+      setAiExplanation({
+        provider: data.provider,
+        model: data.model,
+        content: data.data,
+      });
+    } catch (err) {
+      console.error("AI explanation error:", err);
+      setAiError(err.message || "Failed to generate AI explanation");
+    } finally {
+      setIsGeneratingAi(false);
     }
   };
 
@@ -596,25 +632,124 @@ python -m unittest discover tests`;
         </CardContent>
       </Card>
 
-      {/* AI Section (Marked Not Generated) */}
+      {/* AI Section (Clearly Tagged AI-generated) */}
       <Card className="border-border overflow-hidden bg-purple-500/[0.02]">
         <CardHeader className="py-3 px-4 border-b border-border/60 bg-purple-500/5 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <Bot className="w-4 h-4 text-purple-400" />
             <CardTitle className="text-sm font-medium">6. AI-Assisted Exploit & Patch Analysis</CardTitle>
           </div>
-          <ProvenanceTag type="ai" />
-        </CardHeader>
-        <CardContent className="p-4 space-y-2 text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-text-tertiary">Generation Status:</span>
-            <span className="px-2 py-0.5 rounded bg-surface border border-border text-[11px] font-mono text-text-secondary">
-              not generated
-            </span>
+            <ProvenanceTag type="ai" />
           </div>
-          <p className="text-text-secondary leading-relaxed">
-            AI-assisted automated exploit reasoning, attack surface modeling, and iterative patch synthesis are scheduled for upcoming stages. This section is reserved and strictly marked as not generated.
-          </p>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4 text-xs">
+          {aiExplanation?.content ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-border/40">
+                <span className="text-[11px] font-mono text-text-tertiary">
+                  Provider: <strong className="text-text">{aiExplanation.provider}</strong> | Model:{" "}
+                  <strong className="text-text">{aiExplanation.model}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleGenerateAiExplanation}
+                  disabled={isGeneratingAi}
+                  className="text-[11px] text-accent hover:underline flex items-center gap-1 font-medium"
+                >
+                  <span>{isGeneratingAi ? "Updating..." : "Re-generate"}</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+
+              <div className="p-3.5 rounded-[6px] border border-border bg-surface-raised/40 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block font-mono">
+                  Executive Summary
+                </span>
+                <p className="text-text leading-relaxed">{aiExplanation.content.summary}</p>
+              </div>
+
+              <div className="p-3.5 rounded-[6px] border border-border bg-surface space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block font-mono">
+                  Root Cause Analysis
+                </span>
+                <p className="text-text-secondary leading-relaxed">{aiExplanation.content.rootCause}</p>
+              </div>
+
+              {aiExplanation.content.remediationOptions?.length > 0 && (
+                <div className="space-y-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block font-mono">
+                    Suggested Remediation Options
+                  </span>
+                  {aiExplanation.content.remediationOptions.map((opt, idx) => (
+                    <div key={idx} className="p-3.5 rounded-[6px] border border-border bg-surface space-y-2">
+                      <div className="font-semibold text-text">{opt.title}</div>
+                      <p className="text-text-secondary">{opt.description}</p>
+                      {opt.codeSnippet && (
+                        <AiSuggestionCodeBlock code={opt.codeSnippet} language="python" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {aiExplanation.content.additionalTests?.length > 0 && (
+                <div className="space-y-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block font-mono">
+                    Suggested Additional Test Cases
+                  </span>
+                  {aiExplanation.content.additionalTests.map((t, idx) => (
+                    <div key={idx} className="p-3.5 rounded-[6px] border border-border bg-surface space-y-2">
+                      <div className="font-semibold text-text flex items-center gap-1.5">
+                        <Terminal className="w-3.5 h-3.5 text-accent" />
+                        <span>{t.name}</span>
+                      </div>
+                      <p className="text-text-secondary">{t.description}</p>
+                      {t.testCode && (
+                        <AiSuggestionCodeBlock code={t.testCode} language="python" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-text-tertiary">Generation Status:</span>
+                <span className="px-2 py-0.5 rounded bg-surface border border-border text-[11px] font-mono text-text-secondary">
+                  not generated
+                </span>
+              </div>
+              <p className="text-text-secondary leading-relaxed">
+                AI-assisted automated exploit reasoning, attack surface modeling, and patch analysis have not been run for this report yet.
+              </p>
+              {aiError && (
+                <div className="p-2.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+                  {aiError}
+                </div>
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleGenerateAiExplanation}
+                disabled={isGeneratingAi}
+                className="gap-1.5 text-xs text-purple-300 hover:text-purple-200 border-purple-500/30"
+              >
+                {isGeneratingAi ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Generating analysis...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Generate AI explanation</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -81,15 +81,42 @@ export function extractLogExcerpt(rawLog = "", lineCount = 40) {
  * Assembles a versioned, structured evidence document (schemaVersion 1) from a PatchReport record.
  *
  * @param {object} report - PatchReport with finding, project, baselineRun, candidateRun, and artifacts
+ * @param {object} [aiExplanation=null] - Optional associated AiExplanation
  * @returns {object} Canonical evidence report document
  */
-export function buildEvidenceDocument(report) {
+export function buildEvidenceDocument(report, aiExplanation = null) {
   const finding = report.finding || {};
   const project = report.project || {};
   const baselineRun = report.baselineRun || {};
   const candidateRun = report.candidateRun || {};
   const regressions = report.regressionResults || {};
   const diffStat = report.diffStat || {};
+
+  const effectiveAi = aiExplanation || report.aiExplanation || null;
+  const aiContent = effectiveAi?.content || null;
+
+  let aiAnalysis = {
+    provenance: "ai",
+    status: "not generated",
+    content: null,
+    note: "AI-assisted automated exploit reasoning and patch synthesis are not generated yet.",
+  };
+
+  if (aiContent) {
+    aiAnalysis = {
+      provenance: "ai",
+      status: "generated",
+      provider: effectiveAi.provider || "template",
+      model: effectiveAi.model || "template",
+      summary: aiContent.summary,
+      rootCause: aiContent.rootCause,
+      remediationOptions: aiContent.remediationOptions || [],
+      additionalTests: aiContent.additionalTests || [],
+      nextSteps: aiContent.nextSteps || [],
+      limitations: aiContent.limitations || [],
+      citedEvidence: aiContent.citedEvidence || [],
+    };
+  }
 
   // Find stored DIFF artifact
   const diffArtifact = (report.artifacts || []).find((a) => a.kind === "DIFF");
@@ -288,12 +315,7 @@ export function buildEvidenceDocument(report) {
       },
     },
 
-    aiAnalysis: {
-      provenance: "ai",
-      status: "not generated",
-      content: null,
-      note: "AI-assisted automated exploit reasoning and patch synthesis are not generated yet.",
-    },
+    aiAnalysis,
 
     limitations: {
       provenance: "test",
@@ -494,8 +516,45 @@ export function generateMarkdownReport(doc) {
 
   // 6. AI Section
   sections.push(`## 6. AI-Assisted Exploit & Patch Analysis [AI-generated]`);
-  sections.push(`*Status:* \`${doc.aiAnalysis.status}\``);
-  sections.push(`> ${doc.aiAnalysis.note}`);
+  sections.push(`- **Status:** \`${doc.aiAnalysis.status}\``);
+  if (doc.aiAnalysis.status === "generated") {
+    sections.push(`- **Provider / Model:** \`${doc.aiAnalysis.provider || "template"}\` (\`${doc.aiAnalysis.model || "template"}\`)`);
+    sections.push(``);
+    sections.push(`### Executive Summary`);
+    sections.push(doc.aiAnalysis.summary);
+    sections.push(``);
+    sections.push(`### Root Cause`);
+    sections.push(doc.aiAnalysis.rootCause);
+    sections.push(``);
+    if (doc.aiAnalysis.remediationOptions?.length > 0) {
+      sections.push(`### Remediation Options`);
+      for (const opt of doc.aiAnalysis.remediationOptions) {
+        sections.push(`- **${opt.title}:** ${opt.description}`);
+        if (opt.codeSnippet) {
+          sections.push(``);
+          sections.push(`\`\`\`python`);
+          sections.push(opt.codeSnippet);
+          sections.push(`\`\`\``);
+          sections.push(``);
+        }
+      }
+    }
+    if (doc.aiAnalysis.additionalTests?.length > 0) {
+      sections.push(`### Suggested Additional Tests`);
+      for (const test of doc.aiAnalysis.additionalTests) {
+        sections.push(`- **${test.name}:** ${test.description}`);
+        if (test.testCode) {
+          sections.push(``);
+          sections.push(`\`\`\`python`);
+          sections.push(test.testCode);
+          sections.push(`\`\`\``);
+          sections.push(``);
+        }
+      }
+    }
+  } else {
+    sections.push(`> ${doc.aiAnalysis.note}`);
+  }
   sections.push(``);
 
   // 7. Logs Excerpt
@@ -538,3 +597,4 @@ export function generateMarkdownReport(doc) {
 
   return sections.join("\n");
 }
+

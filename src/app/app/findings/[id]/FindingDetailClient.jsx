@@ -33,6 +33,7 @@ import { SeverityBadge } from "@/components/ui/SeverityBadge";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Badge } from "@/components/ui/Badge";
 import { resolveReproducer } from "@/lib/reproducers";
+import { AiSuggestionCodeBlock } from "@/components/ai/AiSuggestionCodeBlock";
 
 function formatDate(isoStr) {
   if (!isoStr) return "—";
@@ -49,10 +50,15 @@ function formatDate(isoStr) {
   }
 }
 
-export function FindingDetailClient({ finding: initialFinding }) {
+export function FindingDetailClient({ finding: initialFinding, initialAiExplanation = null }) {
   const router = useRouter();
   const [finding, setFinding] = useState(initialFinding);
   const [isUpdatingTriage, setIsUpdatingTriage] = useState(false);
+
+  // AI Security Assistant Explanation State
+  const [aiExplanation, setAiExplanation] = useState(initialAiExplanation);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [aiError, setAiError] = useState(null);
   const [triageError, setTriageError] = useState("");
 
   const project = finding.project;
@@ -235,6 +241,36 @@ export function FindingDetailClient({ finding: initialFinding }) {
     } catch (err) {
       alert(err.message || "Failed to start verification.");
       setIsVerifying(false);
+    }
+  };
+
+  const handleGenerateAiExplanation = async () => {
+    setIsGeneratingAi(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: "explain-finding",
+          entityType: "Finding",
+          entityId: finding.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to generate AI explanation (${res.status})`);
+      }
+      setAiExplanation({
+        provider: data.provider,
+        model: data.model,
+        content: data.data,
+      });
+    } catch (err) {
+      console.error("AI explanation error:", err);
+      setAiError(err.message || "Failed to generate AI explanation");
+    } finally {
+      setIsGeneratingAi(false);
     }
   };
 
@@ -874,23 +910,147 @@ export function FindingDetailClient({ finding: initialFinding }) {
             </div>
           </div>
 
-          {/* 3. Written by AI (Empty State) */}
-          <div className="p-3.5 rounded-[8px] bg-surface border border-border space-y-2 text-xs flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-1.5 text-text font-medium">
-                <BrainCircuit className="w-3.5 h-3.5 text-text-tertiary" />
-                <span>Written by AI</span>
+          {/* 3. Written by AI */}
+          <div className="p-3.5 rounded-[8px] bg-surface border border-border space-y-3 text-xs flex flex-col justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-1.5 text-text font-medium">
+                <div className="flex items-center gap-1.5">
+                  <BrainCircuit className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Written by AI</span>
+                </div>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  {aiExplanation?.provider || "AI-generated"}
+                </span>
               </div>
-              <div className="pt-2 text-[11px] text-text-tertiary italic">
-                No AI explanation yet
-              </div>
+              {aiExplanation?.content ? (
+                <div className="space-y-1">
+                  <div className="text-[11px] text-text font-medium line-clamp-3">
+                    {aiExplanation.content.summary}
+                  </div>
+                  <p className="text-[10px] text-text-tertiary line-clamp-2">
+                    {aiExplanation.content.rootCause}
+                  </p>
+                </div>
+              ) : (
+                <div className="text-[11px] text-text-tertiary italic">
+                  No AI explanation generated yet.
+                </div>
+              )}
+              {aiError && (
+                <div className="p-2 rounded bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px]">
+                  {aiError}
+                </div>
+              )}
             </div>
-            <div className="text-[10px] text-text-tertiary">
-              Synthesized remediation arrives in upcoming steps
+            <div className="pt-2 border-t border-border flex items-center justify-between">
+              {aiExplanation ? (
+                <button
+                  type="button"
+                  onClick={handleGenerateAiExplanation}
+                  disabled={isGeneratingAi}
+                  className="text-[11px] text-accent hover:underline flex items-center gap-1 font-medium"
+                >
+                  <span>{isGeneratingAi ? "Updating..." : "Re-generate"}</span>
+                  <ArrowRight className="w-2.5 h-2.5" />
+                </button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleGenerateAiExplanation}
+                  disabled={isGeneratingAi}
+                  className="w-full gap-1.5 text-xs text-purple-300 hover:text-purple-200 border-purple-500/30 hover:border-purple-500/50"
+                >
+                  {isGeneratingAi ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Analyzing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Generate explanation</span>
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Detailed AI Explanation Section when generated */}
+      {aiExplanation?.content && (
+        <Card className="border-border overflow-hidden bg-purple-500/[0.02]">
+          <CardHeader className="py-3 px-4 border-b border-border/60 bg-purple-500/5 flex flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-400" />
+              <CardTitle className="text-sm font-medium">AI Security Explanation & Remediation</CardTitle>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-surface border border-border text-text-secondary">
+                Provider: {aiExplanation.provider} ({aiExplanation.model})
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-4">
+            <div className="p-3.5 rounded-[6px] border border-border bg-surface-raised/40 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block font-mono">
+                Executive Summary
+              </span>
+              <p className="text-xs text-text leading-relaxed">
+                {aiExplanation.content.summary}
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-[6px] border border-border bg-surface space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block font-mono">
+                Root Cause Analysis
+              </span>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                {aiExplanation.content.rootCause}
+              </p>
+            </div>
+
+            {aiExplanation.content.remediationOptions?.length > 0 && (
+              <div className="space-y-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block font-mono">
+                  Suggested Remediation Options
+                </span>
+                {aiExplanation.content.remediationOptions.map((opt, idx) => (
+                  <div key={idx} className="p-3.5 rounded-[6px] border border-border bg-surface space-y-2 text-xs">
+                    <div className="font-semibold text-text">{opt.title}</div>
+                    <p className="text-text-secondary">{opt.description}</p>
+                    {opt.codeSnippet && (
+                      <AiSuggestionCodeBlock code={opt.codeSnippet} language="python" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {aiExplanation.content.additionalTests?.length > 0 && (
+              <div className="space-y-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block font-mono">
+                  Suggested Additional Test Cases
+                </span>
+                {aiExplanation.content.additionalTests.map((t, idx) => (
+                  <div key={idx} className="p-3.5 rounded-[6px] border border-border bg-surface space-y-2 text-xs">
+                    <div className="font-semibold text-text flex items-center gap-1.5">
+                      <Terminal className="w-3.5 h-3.5 text-accent" />
+                      <span>{t.name}</span>
+                    </div>
+                    <p className="text-text-secondary">{t.description}</p>
+                    {t.testCode && (
+                      <AiSuggestionCodeBlock code={t.testCode} language="python" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

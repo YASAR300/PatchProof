@@ -1,4 +1,10 @@
+import dns from "node:dns";
 import { PrismaClient } from "@prisma/client";
+
+// Ensure Node.js resolves IPv4 before IPv6 to avoid connection timeouts on networks without IPv6 routes
+if (typeof dns.setDefaultResultOrder === "function") {
+  dns.setDefaultResultOrder("ipv4first");
+}
 
 const globalForPrisma = globalThis;
 

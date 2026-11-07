@@ -50,8 +50,19 @@ export default async function ReportDetailPage({ params }) {
   // Ensure user has membership/access to project
   await requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
 
-  const doc = buildEvidenceDocument(report);
+  const aiExplanation = await prisma.aiExplanation.findFirst({
+    where: { entityType: "PatchReport", entityId: id },
+    orderBy: { createdAt: "desc" },
+  });
 
-  return <ReportDetailClient report={report} doc={doc} />;
+  const doc = buildEvidenceDocument(report, aiExplanation);
+
+  return (
+    <ReportDetailClient
+      report={report}
+      doc={doc}
+      initialAiExplanation={aiExplanation}
+    />
+  );
 }
 

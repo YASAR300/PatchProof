@@ -1023,3 +1023,61 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 - `scripts/verify-step14.mjs` (added: automated engine and integrity verification test)
 - `BUILD_LOG.md` (modified)
 
+---
+
+## Step 15: Optional AI Security Assistant (2026-11-07)
+
+### Decisions and assumptions
+1. **Core Product Operates Independently Without AI Key**:
+   - The entire platform continues to function with zero external AI dependencies or API keys.
+   - Built a deterministic template generator (`src/lib/ai/template.js`) producing identical structured JSON labeled `'Template summary (no AI key configured)'`.
+   - Clear scope and boundary definitions: AI is strictly an advisory assistant. AI outputs are never executed automatically, never converted into runnable reproducers, and never saved as test cases without explicit human implementation and code review.
+2. **Provider Layer & Grounding Rules (`src/lib/ai/`)**:
+   - Implemented `generate({ task, evidence, entityType, entityId, userId })` interface in `src/lib/ai/index.js`.
+   - Anthropic Messages API client (`src/lib/ai/anthropic.js`) via native `fetch` utilizing environment variables `ANTHROPIC_API_KEY` and `AI_MODEL` (defaulting to `claude-3-5-sonnet-20241022`).
+   - Configured 30-second timeout via `AbortSignal.timeout(30000)`, 1 retry with exponential backoff on transient errors (5xx / network), and graceful degradation on invalid API keys or authentication errors without server crashing.
+   - **Grounding and Safety Pipeline**:
+     - Redaction engine (`src/lib/ai/redact.js`): Scrubs AWS access keys, GitHub personal access tokens, Anthropic/OpenAI keys, bearer tokens, and password credentials before sending payloads.
+     - Log truncation (`truncateLog`): Restricts execution logs to first 25 and last 25 lines with middle omitted notice to avoid context blowing or data exfiltration.
+     - System prompt strictly instructs the model to use only provided evidence, explicitly state what was not tested, never claim the software is secure, never present a suggestion as verified, and return strictly valid JSON.
+     - Zod schema validation (`src/lib/ai/schema.js`) enforcing: `{ summary, rootCause, remediationOptions[], additionalTests[], nextSteps[], limitations[], citedEvidence[] }`.
+     - Non-existent citation filter: Extracts all known IDs (`finding.id`, `run.id`, `report.id`, `baselineRun.id`, `candidateRun.id`, and artifact IDs) and drops any hallucinated evidence reference from `citedEvidence`.
+3. **Tasks Supported**:
+   - (1) `explain-finding`: Explain a finding in plain language with root cause and remediation options.
+   - (2) `summarize-run`: Summarize a verification run or execution log.
+   - (3) `explain-report`: Explain a patch report in human-readable form with test analysis.
+   - (4) `suggest-tests`: Suggest additional security test cases and edge cases.
+   - (5) `suggest-remediation`: Suggest remediation options and next debugging steps.
+4. **Caching, Rate Limiting & Audit Logging**:
+   - Persistent cache in PostgreSQL via `AiExplanation` model keyed by `entityType`, `entityId`, `task`, and SHA-256 `inputHash`. Identical requests return instant cached responses with `cached: true`.
+   - Per-user rate limiting of 20 AI requests per hour verified against `AuditEvent` count.
+   - Audit event logging with action `AI_EXPLANATION_CREATED` capturing entity metadata, provider, and model used.
+5. **UI Integrations**:
+   - **Finding Detail Page (`/app/findings/[id]`)**: Filled "Written by AI" card with an interactive "Generate explanation" button, loading state, and rich `AiExplanationView` with code blocks and safety notice.
+   - **Patch Report Detail Page (`/app/reports/[id]`)**: Added AI Analysis section tagged `[AI-generated]`, wired to dynamic generation, rendered in exports (`/api/reports/[id]/export?format=json` and `format=md`), and rendered in print view (`/app/reports/[id]/print`).
+   - **Dedicated Assistant Page (`/app/assistant`)**: Interactive workbench allowing users to select target kind (Finding, Verification Run, Patch Report), pick specific entities from dropdowns, select any of the 5 tasks, and view rich structured explanations with clickable cited evidence pills.
+   - **Safety Presentation**: All suggested code snippets and tests render inside `AiSuggestionCodeBlock` with a copy button and mandatory prominent banner: *"AI-generated suggestion. Not verified. Review and test before use."*.
+
+### Files added / modified
+- `src/lib/ai/redact.js` (added: secret scrubbing and log truncation)
+- `src/lib/ai/schema.js` (added: Zod schema and citation validator)
+- `src/lib/ai/template.js` (added: deterministic template fallback generator)
+- `src/lib/ai/anthropic.js` (added: Anthropic Messages API client with retry and timeout)
+- `src/lib/ai/index.js` (added: core generate orchestrator with caching and rate limiting)
+- `src/app/api/ai/explain/route.js` (added: authenticated GET and POST endpoints)
+- `src/components/ai/AiSuggestionCodeBlock.jsx` (added: safe code display with copy button and warning banner)
+- `src/components/ai/AiExplanationView.jsx` (added: modular AI explanation viewer with cited evidence pills)
+- `src/app/app/assistant/page.jsx` (modified: server page preloading findings, runs, and reports)
+- `src/app/app/assistant/AssistantClient.jsx` (added: dedicated AI assistant client interface)
+- `src/app/app/findings/[id]/FindingDetailClient.jsx` (modified: integrated AI explanation generation)
+- `src/app/app/findings/[id]/page.jsx` (modified: loads initial AI explanation for finding)
+- `src/lib/report.js` (modified: incorporates AI analysis into evidence document and markdown export)
+- `src/app/api/reports/[id]/export/route.js` (modified: passes stored AI explanation to export generator)
+- `src/app/app/reports/[id]/page.jsx` (modified: passes stored AI explanation to client and evidence document)
+- `src/app/app/reports/[id]/ReportDetailClient.jsx` (modified: added AI analysis section with live generation)
+- `src/app/app/reports/[id]/print/page.jsx` (modified: passes AI explanation to print view)
+- `src/app/app/reports/[id]/print/PrintReportClient.jsx` (modified: formats AI analysis section for monochrome print)
+- `scripts/verify-step15.mjs` (added: automated unit verification for Step 15)
+- `BUILD_LOG.md` (modified)
+
+

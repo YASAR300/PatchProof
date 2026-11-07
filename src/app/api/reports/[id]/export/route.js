@@ -51,7 +51,12 @@ export async function GET(req, { params }) {
     const url = new URL(req.url);
     const format = (url.searchParams.get("format") || "json").toLowerCase();
 
-    const doc = buildEvidenceDocument(report);
+    const aiExplanation = await prisma.aiExplanation.findFirst({
+      where: { entityType: "PatchReport", entityId: id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const doc = buildEvidenceDocument(report, aiExplanation);
 
     if (format === "md" || format === "markdown") {
       const markdown = generateMarkdownReport(doc);
@@ -83,3 +88,4 @@ export async function GET(req, { params }) {
     );
   }
 }
+

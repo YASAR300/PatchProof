@@ -287,10 +287,47 @@ export function PrintReportClient({ doc, reportId }) {
             <span>6. AI-Assisted Exploit & Patch Analysis</span>
             <span className="text-[11px] font-mono font-normal text-neutral-500">[AI-generated]</span>
           </h2>
-          <div className="p-3 border border-neutral-200 rounded bg-neutral-50 text-xs">
-            <div className="font-semibold text-neutral-700">Status: {doc.aiAnalysis.status}</div>
-            <p className="text-neutral-600 mt-1">{doc.aiAnalysis.note}</p>
-          </div>
+          {doc.aiAnalysis.status === "generated" ? (
+            <div className="p-3 border border-neutral-300 rounded bg-neutral-50 text-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5 text-[11px] font-mono">
+                <span className="font-semibold text-neutral-900">Status: generated</span>
+                <span className="text-neutral-500">
+                  Provider: {doc.aiAnalysis.provider || "template"} ({doc.aiAnalysis.model || "template"})
+                </span>
+              </div>
+              <div>
+                <strong className="block text-neutral-800 mb-0.5">Summary:</strong>
+                <p className="text-neutral-700">{doc.aiAnalysis.summary}</p>
+              </div>
+              <div>
+                <strong className="block text-neutral-800 mb-0.5">Root Cause:</strong>
+                <p className="text-neutral-700">{doc.aiAnalysis.rootCause}</p>
+              </div>
+              {doc.aiAnalysis.remediationOptions?.length > 0 && (
+                <div>
+                  <strong className="block text-neutral-800 mb-1">Remediation Options:</strong>
+                  <div className="space-y-1.5">
+                    {doc.aiAnalysis.remediationOptions.map((opt, idx) => (
+                      <div key={idx} className="p-2 border border-neutral-200 bg-white rounded">
+                        <div className="font-semibold text-neutral-900">{opt.title}</div>
+                        <div className="text-neutral-600 text-[11px]">{opt.description}</div>
+                        {opt.codeSnippet && (
+                          <pre className="mt-1 p-1.5 bg-neutral-100 border border-neutral-200 rounded font-mono text-[10px] whitespace-pre">
+                            {opt.codeSnippet}
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-3 border border-neutral-200 rounded bg-neutral-50 text-xs">
+              <div className="font-semibold text-neutral-700">Status: {doc.aiAnalysis.status}</div>
+              <p className="text-neutral-600 mt-1">{doc.aiAnalysis.note}</p>
+            </div>
+          )}
         </section>
 
         {/* Section 7: Execution Logs Excerpts */}
@@ -378,3 +415,4 @@ export function PrintReportClient({ doc, reportId }) {
     </div>
   );
 }
+
