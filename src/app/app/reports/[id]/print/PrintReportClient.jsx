@@ -289,6 +289,15 @@ export function PrintReportClient({ doc, reportId }) {
           </h2>
           {doc.aiAnalysis.status === "generated" ? (
             <div className="p-3 border border-neutral-300 rounded bg-neutral-50 text-xs space-y-3">
+              {/* Prominent Mandatory Safety Warning Banner */}
+              <div
+                data-testid="print-ai-safety-warning"
+                className="p-2.5 rounded border border-amber-300 bg-amber-50 text-amber-900 text-xs font-medium flex items-center gap-2"
+              >
+                <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>AI-generated suggestion. Not verified. Review and test before use.</span>
+              </div>
+
               <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5 text-[11px] font-mono">
                 <span className="font-semibold text-neutral-900">Status: generated</span>
                 <span className="text-neutral-500">
@@ -306,20 +315,39 @@ export function PrintReportClient({ doc, reportId }) {
               {doc.aiAnalysis.remediationOptions?.length > 0 && (
                 <div>
                   <strong className="block text-neutral-800 mb-1">Remediation Options:</strong>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {doc.aiAnalysis.remediationOptions.map((opt, idx) => (
-                      <div key={idx} className="p-2 border border-neutral-200 bg-white rounded space-y-1">
+                      <div key={idx} className="p-2.5 border border-neutral-200 bg-white rounded space-y-1.5">
                         <div className="font-semibold text-neutral-900">{opt.title}</div>
                         <div className="text-neutral-600 text-[11px]">{opt.description}</div>
+                        <div className="px-2 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-900 text-[10px] font-medium flex items-center gap-1">
+                          <span>AI-generated suggestion. Not verified. Review and test before use.</span>
+                        </div>
                         {opt.codeSnippet && (
-                          <div className="mt-1.5 space-y-1">
-                            <div className="px-2 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-900 text-[10px] font-medium flex items-center gap-1">
-                              <span>AI-generated suggestion. Not verified. Review and test before use.</span>
-                            </div>
-                            <pre className="p-1.5 bg-neutral-100 border border-neutral-200 rounded font-mono text-[10px] whitespace-pre">
-                              {opt.codeSnippet}
-                            </pre>
-                          </div>
+                          <pre className="p-1.5 bg-neutral-100 border border-neutral-200 rounded font-mono text-[10px] whitespace-pre">
+                            {opt.codeSnippet}
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {doc.aiAnalysis.additionalTests?.length > 0 && (
+                <div>
+                  <strong className="block text-neutral-800 mb-1">Suggested Additional Tests:</strong>
+                  <div className="space-y-2">
+                    {doc.aiAnalysis.additionalTests.map((t, idx) => (
+                      <div key={idx} className="p-2.5 border border-neutral-200 bg-white rounded space-y-1.5">
+                        <div className="font-semibold text-neutral-900">{t.name}</div>
+                        <div className="text-neutral-600 text-[11px]">{t.description}</div>
+                        <div className="px-2 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-900 text-[10px] font-medium flex items-center gap-1">
+                          <span>AI-generated suggestion. Not verified. Review and test before use.</span>
+                        </div>
+                        {t.testCode && (
+                          <pre className="p-1.5 bg-neutral-100 border border-neutral-200 rounded font-mono text-[10px] whitespace-pre">
+                            {t.testCode}
+                          </pre>
                         )}
                       </div>
                     ))}
@@ -331,6 +359,9 @@ export function PrintReportClient({ doc, reportId }) {
             <div className="p-3 border border-neutral-200 rounded bg-neutral-50 text-xs">
               <div className="font-semibold text-neutral-700">Status: {doc.aiAnalysis.status}</div>
               <p className="text-neutral-600 mt-1">{doc.aiAnalysis.note}</p>
+              <div className="mt-2 text-[11px] text-amber-800">
+                Notice: AI-generated suggestion. Not verified. Review and test before use.
+              </div>
             </div>
           )}
         </section>

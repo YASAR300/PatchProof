@@ -72,36 +72,80 @@ export function AssistantClient({
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  // Synchronize entity selection whenever lists change (e.g. project switcher or re-render)
+  const findingSelectRef = React.useRef(null);
+  const runSelectRef = React.useRef(null);
+  const reportSelectRef = React.useRef(null);
+  const prevProjectIdRef = React.useRef(activeProject?.id);
+
+  // Synchronize selection ONLY when active project changes
   React.useEffect(() => {
-    if (findings.length > 0) {
-      if (!selectedFindingId || !findings.some((f) => f.id === selectedFindingId)) {
-        setSelectedFindingId(findings[0].id);
-      }
-    } else {
-      setSelectedFindingId("");
+    if (prevProjectIdRef.current !== activeProject?.id) {
+      prevProjectIdRef.current = activeProject?.id;
+      if (findings.length > 0) setSelectedFindingId(findings[0].id);
+      else setSelectedFindingId("");
+      if (runs.length > 0) setSelectedRunId(runs[0].id);
+      else setSelectedRunId("");
+      if (reports.length > 0) setSelectedReportId(reports[0].id);
+      else setSelectedReportId("");
+      setResult(null);
+      setError(null);
     }
-  }, [findings, selectedFindingId]);
+  }, [activeProject?.id, findings, runs, reports]);
+
+  // Keep DOM <select> and React state bidirectionally synced for external automation & extensions
+  React.useEffect(() => {
+    const el = findingSelectRef.current;
+    if (!el) return;
+    const sync = () => {
+      if (el.value && el.value !== selectedFindingId) {
+        setSelectedFindingId(el.value);
+        setResult(null);
+        setError(null);
+      }
+    };
+    el.addEventListener("change", sync);
+    el.addEventListener("input", sync);
+    return () => {
+      el.removeEventListener("change", sync);
+      el.removeEventListener("input", sync);
+    };
+  }, [selectedFindingId]);
 
   React.useEffect(() => {
-    if (runs.length > 0) {
-      if (!selectedRunId || !runs.some((r) => r.id === selectedRunId)) {
-        setSelectedRunId(runs[0].id);
+    const el = runSelectRef.current;
+    if (!el) return;
+    const sync = () => {
+      if (el.value && el.value !== selectedRunId) {
+        setSelectedRunId(el.value);
+        setResult(null);
+        setError(null);
       }
-    } else {
-      setSelectedRunId("");
-    }
-  }, [runs, selectedRunId]);
+    };
+    el.addEventListener("change", sync);
+    el.addEventListener("input", sync);
+    return () => {
+      el.removeEventListener("change", sync);
+      el.removeEventListener("input", sync);
+    };
+  }, [selectedRunId]);
 
   React.useEffect(() => {
-    if (reports.length > 0) {
-      if (!selectedReportId || !reports.some((p) => p.id === selectedReportId)) {
-        setSelectedReportId(reports[0].id);
+    const el = reportSelectRef.current;
+    if (!el) return;
+    const sync = () => {
+      if (el.value && el.value !== selectedReportId) {
+        setSelectedReportId(el.value);
+        setResult(null);
+        setError(null);
       }
-    } else {
-      setSelectedReportId("");
-    }
-  }, [reports, selectedReportId]);
+    };
+    el.addEventListener("change", sync);
+    el.addEventListener("input", sync);
+    return () => {
+      el.removeEventListener("change", sync);
+      el.removeEventListener("input", sync);
+    };
+  }, [selectedReportId]);
 
   // When target type changes, adjust default task and clear transient result
   const handleTargetTypeChange = (type) => {
@@ -128,26 +172,53 @@ export function AssistantClient({
 
   const handleSelectFinding = (id) => {
     setSelectedFindingId(id);
+    if (findingSelectRef.current && findingSelectRef.current.value !== id) {
+      findingSelectRef.current.value = id;
+    }
     setResult(null);
     setError(null);
   };
 
   const handleSelectRun = (id) => {
     setSelectedRunId(id);
+    if (runSelectRef.current && runSelectRef.current.value !== id) {
+      runSelectRef.current.value = id;
+    }
     setResult(null);
     setError(null);
   };
 
   const handleSelectReport = (id) => {
     setSelectedReportId(id);
+    if (reportSelectRef.current && reportSelectRef.current.value !== id) {
+      reportSelectRef.current.value = id;
+    }
     setResult(null);
     setError(null);
   };
 
   const getTargetEntityId = () => {
-    if (targetType === "Finding") return selectedFindingId;
-    if (targetType === "VerificationRun") return selectedRunId;
-    if (targetType === "PatchReport") return selectedReportId;
+    if (targetType === "Finding") {
+      const domVal = findingSelectRef.current?.value;
+      if (domVal && domVal !== selectedFindingId && findings.some((f) => f.id === domVal)) {
+        return domVal;
+      }
+      return selectedFindingId;
+    }
+    if (targetType === "VerificationRun") {
+      const domVal = runSelectRef.current?.value;
+      if (domVal && domVal !== selectedRunId && runs.some((r) => r.id === domVal)) {
+        return domVal;
+      }
+      return selectedRunId;
+    }
+    if (targetType === "PatchReport") {
+      const domVal = reportSelectRef.current?.value;
+      if (domVal && domVal !== selectedReportId && reports.some((p) => p.id === domVal)) {
+        return domVal;
+      }
+      return selectedReportId;
+    }
     return null;
   };
 
@@ -192,9 +263,10 @@ export function AssistantClient({
   };
 
   // Find currently selected item for details preview
-  const currentFinding = findings.find((f) => f.id === selectedFindingId);
-  const currentRun = runs.find((r) => r.id === selectedRunId);
-  const currentReport = reports.find((p) => p.id === selectedReportId);
+  const currentTargetId = getTargetEntityId();
+  const currentFinding = findings.find((f) => f.id === currentTargetId);
+  const currentRun = runs.find((r) => r.id === currentTargetId);
+  const currentReport = reports.find((p) => p.id === currentTargetId);
 
   return (
     <div className="space-y-6 font-sans w-full max-w-[1240px] mx-auto pb-16">
@@ -277,9 +349,9 @@ export function AssistantClient({
                 </div>
               </div>
 
-              {/* Target Entity Dropdown */}
-              <div>
-                <label className="text-[11px] font-bold text-text-tertiary uppercase tracking-wider block font-mono mb-1.5">
+              {/* Target Entity Dropdown & Quick Selector */}
+              <div className="space-y-3">
+                <label className="text-[11px] font-bold text-text-tertiary uppercase tracking-wider block font-mono mb-1">
                   {targetType === "Finding"
                     ? "Select Vulnerability Finding"
                     : targetType === "VerificationRun"
@@ -289,22 +361,62 @@ export function AssistantClient({
 
                 {targetType === "Finding" && (
                   findings.length > 0 ? (
-                    <select
-                      id="assistant-finding-select"
-                      name="selectedFindingId"
-                      data-testid="assistant-finding-select"
-                      key="select-finding"
-                      value={selectedFindingId}
-                      onChange={(e) => handleSelectFinding(e.target.value)}
-                      onInput={(e) => handleSelectFinding(e.target.value)}
-                      className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-sans cursor-pointer"
-                    >
-                      {findings.map((f) => (
-                        <option key={f.id} value={f.id} data-id={f.id}>
-                          [{f.severity}] {f.title} ({f.filePath}:{f.lineStart || 1})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-2">
+                      <select
+                        ref={findingSelectRef}
+                        id="assistant-finding-select"
+                        name="selectedFindingId"
+                        data-testid="assistant-finding-select"
+                        key="select-finding"
+                        value={selectedFindingId}
+                        onChange={(e) => handleSelectFinding(e.target.value)}
+                        onInput={(e) => handleSelectFinding(e.target.value)}
+                        className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-sans cursor-pointer"
+                      >
+                        {findings.map((f) => (
+                          <option key={f.id} value={f.id} data-id={f.id}>
+                            [{f.severity}] {f.title} ({f.filePath}:{f.lineStart || 1})
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Direct Clickable Finding Cards */}
+                      <div className="space-y-1.5 pt-1">
+                        <span className="text-[10px] text-text-tertiary block font-mono">
+                          Quick Target Selection:
+                        </span>
+                        <div className="space-y-1">
+                          {findings.map((f) => {
+                            const isSelected = f.id === (getTargetEntityId() || selectedFindingId);
+                            return (
+                              <button
+                                key={f.id}
+                                type="button"
+                                data-testid={`target-finding-${f.id}`}
+                                onClick={() => handleSelectFinding(f.id)}
+                                className={`w-full text-left p-2 rounded-[5px] border transition-colors flex items-center justify-between gap-2 cursor-pointer ${
+                                  isSelected
+                                    ? "bg-purple-500/15 border-purple-500/50 text-text font-medium shadow-sm"
+                                    : "bg-surface border-border text-text-secondary hover:border-border-strong hover:text-text"
+                                }`}
+                              >
+                                <div className="truncate text-xs">
+                                  <span className="text-[10px] font-mono mr-1.5 uppercase font-bold text-accent">
+                                    [{f.severity}]
+                                  </span>
+                                  <span>{f.title}</span>
+                                </div>
+                                {isSelected && (
+                                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 shrink-0 font-semibold">
+                                    Selected
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div className="p-3 bg-surface border border-border rounded text-text-tertiary text-xs">
                       No findings available in current workspace.
@@ -314,22 +426,60 @@ export function AssistantClient({
 
                 {targetType === "VerificationRun" && (
                   runs.length > 0 ? (
-                    <select
-                      id="assistant-run-select"
-                      name="selectedRunId"
-                      data-testid="assistant-run-select"
-                      key="select-run"
-                      value={selectedRunId}
-                      onChange={(e) => handleSelectRun(e.target.value)}
-                      onInput={(e) => handleSelectRun(e.target.value)}
-                      className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-mono cursor-pointer"
-                    >
-                      {runs.map((r) => (
-                        <option key={r.id} value={r.id} data-id={r.id}>
-                          [{r.status}] Run #{r.id.slice(-8)} — {r.reproducerId || "reproducer"} ({String(r.commitSha).slice(0, 7)})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-2">
+                      <select
+                        ref={runSelectRef}
+                        id="assistant-run-select"
+                        name="selectedRunId"
+                        data-testid="assistant-run-select"
+                        key="select-run"
+                        value={selectedRunId}
+                        onChange={(e) => handleSelectRun(e.target.value)}
+                        onInput={(e) => handleSelectRun(e.target.value)}
+                        className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-mono cursor-pointer"
+                      >
+                        {runs.map((r) => (
+                          <option key={r.id} value={r.id} data-id={r.id}>
+                            [{r.status}] Run #{r.id.slice(-8)} — {r.reproducerId || "reproducer"} ({String(r.commitSha).slice(0, 7)})
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Direct Clickable Run Cards */}
+                      <div className="space-y-1.5 pt-1">
+                        <span className="text-[10px] text-text-tertiary block font-mono">
+                          Quick Target Selection:
+                        </span>
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {runs.slice(0, 6).map((r) => {
+                            const isSelected = r.id === (getTargetEntityId() || selectedRunId);
+                            return (
+                              <button
+                                key={r.id}
+                                type="button"
+                                data-testid={`target-run-${r.id}`}
+                                onClick={() => handleSelectRun(r.id)}
+                                className={`w-full text-left p-2 rounded-[5px] border transition-colors flex items-center justify-between gap-2 cursor-pointer ${
+                                  isSelected
+                                    ? "bg-purple-500/15 border-purple-500/50 text-text font-medium shadow-sm"
+                                    : "bg-surface border-border text-text-secondary hover:border-border-strong hover:text-text"
+                                }`}
+                              >
+                                <div className="truncate text-xs font-mono">
+                                  <span className="text-[10px] mr-1.5 font-bold text-accent">[{r.status}]</span>
+                                  <span>#{r.id.slice(-8)} ({String(r.commitSha).slice(0, 7)})</span>
+                                </div>
+                                {isSelected && (
+                                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 shrink-0 font-semibold">
+                                    Selected
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div className="p-3 bg-surface border border-border rounded text-text-tertiary text-xs">
                       No verification runs recorded yet.
@@ -339,22 +489,63 @@ export function AssistantClient({
 
                 {targetType === "PatchReport" && (
                   reports.length > 0 ? (
-                    <select
-                      id="assistant-report-select"
-                      name="selectedReportId"
-                      data-testid="assistant-report-select"
-                      key="select-report"
-                      value={selectedReportId}
-                      onChange={(e) => handleSelectReport(e.target.value)}
-                      onInput={(e) => handleSelectReport(e.target.value)}
-                      className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-sans cursor-pointer"
-                    >
-                      {reports.map((p) => (
-                        <option key={p.id} value={p.id} data-id={p.id}>
-                          [{p.verdict}] Report #{p.id.slice(-8)} ({String(p.baselineCommit).slice(0, 7)} → {String(p.candidateCommit).slice(0, 7)})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-2">
+                      <select
+                        ref={reportSelectRef}
+                        id="assistant-report-select"
+                        name="selectedReportId"
+                        data-testid="assistant-report-select"
+                        key="select-report"
+                        value={selectedReportId}
+                        onChange={(e) => handleSelectReport(e.target.value)}
+                        onInput={(e) => handleSelectReport(e.target.value)}
+                        className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-sans cursor-pointer"
+                      >
+                        {reports.map((p) => (
+                          <option key={p.id} value={p.id} data-id={p.id}>
+                            [{p.verdict}] Report #{p.id.slice(-8)} ({String(p.baselineCommit).slice(0, 7)} → {String(p.candidateCommit).slice(0, 7)})
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Direct Clickable Report Cards */}
+                      <div className="space-y-1.5 pt-1">
+                        <span className="text-[10px] text-text-tertiary block font-mono">
+                          Quick Target Selection:
+                        </span>
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {reports.slice(0, 8).map((p) => {
+                            const isSelected = p.id === (getTargetEntityId() || selectedReportId);
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                data-testid={`target-report-${p.id}`}
+                                onClick={() => handleSelectReport(p.id)}
+                                className={`w-full text-left p-2 rounded-[5px] border transition-colors flex items-center justify-between gap-2 cursor-pointer ${
+                                  isSelected
+                                    ? "bg-purple-500/15 border-purple-500/50 text-text font-medium shadow-sm"
+                                    : "bg-surface border-border text-text-secondary hover:border-border-strong hover:text-text"
+                                }`}
+                              >
+                                <div className="truncate text-xs">
+                                  <span className="text-[10px] font-mono mr-1.5 font-bold text-accent">[{p.verdict}]</span>
+                                  <span className="font-mono">#{p.id.slice(-8)}</span>
+                                  <span className="text-text-tertiary ml-1 text-[11px] font-mono">
+                                    ({String(p.baselineCommit).slice(0, 7)} → {String(p.candidateCommit).slice(0, 7)})
+                                  </span>
+                                </div>
+                                {isSelected && (
+                                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 shrink-0 font-semibold">
+                                    Selected
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div className="p-3 bg-surface border border-border rounded text-text-tertiary text-xs">
                       No patch reports recorded yet.

@@ -516,6 +516,8 @@ export function generateMarkdownReport(doc) {
 
   // 6. AI Section
   sections.push(`## 6. AI-Assisted Exploit & Patch Analysis [AI-generated]`);
+  sections.push(`> ⚠️ **AI-generated suggestion. Not verified. Review and test before use.**`);
+  sections.push(``);
   sections.push(`- **Status:** \`${doc.aiAnalysis.status}\``);
   if (doc.aiAnalysis.status === "generated") {
     sections.push(`- **Provider / Model:** \`${doc.aiAnalysis.provider || "template"}\` (\`${doc.aiAnalysis.model || "template"}\`)`);
