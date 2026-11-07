@@ -114,6 +114,7 @@ model Project {
   language           String?
   isDemo             Boolean   @default(false)
   executionEnabled   Boolean   @default(false)
+  webhookSecretEncrypted String?
   lastScannedCommit  String?
   latestCommitSha    String?
   detectedManifests  Json?
@@ -130,6 +131,8 @@ model Project {
   dependencies       Dependency[]
   jobs               Job[]
   auditEvents        AuditEvent[]
+  webhookDeliveries  WebhookDelivery[]
+  prChecks           PullRequestCheck[]
 
   @@index([ownerId])
   @@index([slug])
@@ -418,5 +421,42 @@ model OsvCache {
 
   @@index([cacheKey])
   @@index([expiresAt])
+}
+
+model WebhookDelivery {
+  id        String   @id
+  projectId String?
+  event     String
+  action    String?
+  outcome   String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+}
+
+model PullRequestCheck {
+  id             String   @id @default(cuid())
+  projectId      String
+  prNumber       Int
+  prTitle        String?
+  prUrl          String?
+  headSha        String
+  baseSha        String?
+  status         String
+  hasRegression  Boolean  @default(false)
+  resultsSummary String?  @db.Text
+  details        Json?
+  deliveryId     String?
+  jobId          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([projectId, prNumber])
 }
 

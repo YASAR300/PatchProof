@@ -1080,4 +1080,68 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 - `scripts/verify-step15.mjs` (added: automated unit verification for Step 15)
 - `BUILD_LOG.md` (modified)
 
+---
+
+## Step 16: GitHub Pull-Request Verification & Continuous Regression Monitoring (2026-11-07)
+
+### Decisions and assumptions
+1. **GitHub Webhook Verification & Security (`POST /api/webhooks/github`)**:
+   - Enforces strict cryptographic HMAC-SHA256 signature verification over raw request body using `X-Hub-Signature-256` and `crypto.timingSafeEqual`.
+   - Never processes unsigned payloads (rejects missing or malformed signatures with HTTP 401).
+   - Only processes `pull_request` events with actions `opened`, `synchronize`, and `reopened`; all other events and actions safely ignored with HTTP 200.
+   - Enforces idempotency via `WebhookDelivery` model keyed by GitHub's `X-GitHub-Delivery` GUID, preventing duplicate job enqueuing or replay attacks.
+2. **Per-Project Webhook Secret Management (`src/lib/crypto.js`)**:
+   - Generates cryptographically random 32-byte (64 hex characters) secrets.
+   - Stores secrets encrypted at rest using AES-256-GCM (`iv:authTag:ciphertext`) with key derived from `APP_ENCRYPTION_KEY` (falling back safely to `AUTH_SECRET`).
+   - Secret is revealed only once in plaintext upon initial generation or rotation, accompanied by a copy button and warning notice.
+   - Built `POST /api/repositories/[id]/webhook-secret` for on-demand secret rotation by repository owners/members.
+3. **Two-Tier Execution Safety Allow-list (`src/lib/execution-safety.js`)**:
+   - Barrier 1: Project-level `project.executionEnabled === true`.
+   - Barrier 2: Repository slug (`owner/repo`) must appear in `EXECUTION_ALLOWED_REPOS` environment variable.
+   - If either check fails, the webhook skips container execution, posts nothing to GitHub, records outcome `skipped: execution not allowed`, and returns HTTP 200.
+4. **Worker Job Type `'pr-check'` (`worker/src/handlers/pr-check.js`)**:
+   - Clones/resolves the PR head commit (supporting local deterministic demo target as well as remote Git repositories).
+   - Executes the registered reproducer harness and the regression suite for every finding in the project that has a stored `REPRODUCED` verification or a `FIX_VERIFIED` patch report.
+   - **Regression Alert Detection**: If a finding that was previously marked `FIX_VERIFIED` reproduces on the candidate PR head commit, it is flagged as a `REGRESSION ALERT`.
+   - Emits audit events `PR_CHECK_STARTED`, `PR_CHECK_COMPLETED`, and `REGRESSION_ALERT_RAISED`.
+5. **GitHub Feedback & Bot Reporting (`src/lib/github-reporter.js`)**:
+   - Uses `GITHUB_BOT_TOKEN` to set commit status context `patchproof/verification` (`pending`, `success`, or `failure`).
+   - Posts or updates a single PR comment (`<!-- patchproof-pr-comment -->`) with a compact Markdown table showing findings, baseline vs candidate results, verdict, and link to monitoring view.
+   - Automatic 1-attempt retry on transient GitHub API errors with graceful fallback when token is unconfigured.
+6. **Web UI Architecture**:
+   - **Settings > Integrations (`/app/settings#integrations-section`)**:
+     - Payload Webhook URL with instant copy button.
+     - Setup guide (`application/json`, events: pull requests).
+     - Secret controls with single-view reveal and 'Rotate secret' button.
+     - Allow-list and execution toggle controls.
+     - Recent deliveries table displaying the last 20 deliveries with color-coded outcome badges.
+   - **Repository Page > Monitoring Tab (`/app/repositories/[id]`)**:
+     - Dedicated 'Monitoring' tab with PR checks table: PR number, Head SHA, Status, Verification Results, created timestamp.
+     - Prominent **'Regression alert'** badge on offending pull requests.
+     - Clickable links to underlying verification runs for instant evidence inspection.
+7. **Offline Simulation Utility (`scripts/simulate-webhook.mjs`)**:
+   - End-to-end simulator sending properly signed GitHub `pull_request` payloads locally.
+   - Flags for `--regression`, `--unsigned` (401), `--invalid-sig` (401), `--replay` (idempotent), and `--not-allowed` (`skipped: execution not allowed`).
+
+### Files added / modified
+- `prisma/schema.prisma` (modified: added `WebhookDelivery` and `PullRequestCheck` models, `webhookSecretEncrypted` to `Project`)
+- `prisma/migrations/20261107000000_add_webhook_deliveries_and_pr_checks/migration.sql` (added)
+- `src/lib/crypto.js` (added: AES-256-GCM encryption/decryption, 32-byte secret generator, timing-safe HMAC-SHA256 signature validator)
+- `src/lib/execution-safety.js` (added: two-tier allow-list enforcement)
+- `src/lib/github-reporter.js` (added: commit status and PR comment poster with retries)
+- `src/app/api/webhooks/github/route.js` (added: GitHub webhook receiver with HMAC validation and idempotency)
+- `src/app/api/repositories/[id]/webhook-secret/route.js` (added: secret rotation API)
+- `src/app/api/repositories/[id]/integrations/route.js` (added: integrations status & execution toggle API)
+- `src/app/api/jobs/route.js` (modified: registered `pr-check` in allowed job types)
+- `worker/src/handlers/pr-check.js` (added: worker handler for continuous PR security and regression checks)
+- `worker/src/index.js` (modified: registered `pr-check` handler)
+- `src/components/app/WebhookIntegrationsSection.jsx` (added: UI panel in Settings with setup guide, secret controls, allow-list, deliveries table)
+- `src/app/app/settings/page.jsx` (modified: wired Integrations navigation and WebhookIntegrationsSection)
+- `src/app/app/repositories/[id]/page.jsx` (modified: loaded PR checks for Monitoring tab)
+- `src/app/app/repositories/[id]/RepositoryDetailClient.jsx` (modified: added Monitoring tab with PR checks table, regression alerts, run links)
+- `scripts/simulate-webhook.mjs` (added: local webhook simulator script)
+- `scripts/verify-step16.mjs` (added: automated unit/integration test suite)
+- `BUILD_LOG.md` (modified)
+
+
 

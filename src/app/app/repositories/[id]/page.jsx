@@ -73,11 +73,19 @@ export default async function RepositoryDetailPage({ params }) {
     take: 10,
   });
 
+  // Fetch recent PR checks for Monitoring tab
+  const prChecks = await prisma.pullRequestCheck.findMany({
+    where: { projectId: project.id },
+    orderBy: { createdAt: "desc" },
+    take: 25,
+  });
+
   return (
     <RepositoryDetailClient
       project={project}
       initialCommits={commits}
       initialScans={scans}
+      initialPrChecks={prChecks}
       memberRole={project.memberRole}
     />
   );

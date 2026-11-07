@@ -8,6 +8,7 @@ import { handleScan } from "./handlers/scan.js";
 import { handleDependencyScan } from "./handlers/dependency-scan.js";
 import { handleVerify } from "./handlers/verify.js";
 import { handlePatchValidate } from "./handlers/patch-validate.js";
+import { handlePrCheck } from "./handlers/pr-check.js";
 
 const WORKER_VERSION = "0.1.0";
 const workerId = `worker-${os.hostname().toLowerCase().replace(/[^a-z0-9_-]/g, "-")}-${process.pid}`;
@@ -20,6 +21,7 @@ handlers.set("scan", handleScan);
 handlers.set("dependency-scan", handleDependencyScan);
 handlers.set("verify", handleVerify);
 handlers.set("patch-validate", handlePatchValidate);
+handlers.set("pr-check", handlePrCheck);
 
 let activeJob = null;
 let isShuttingDown = false;

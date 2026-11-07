@@ -32,9 +32,16 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 
-export function RepositoryDetailClient({ project, initialCommits = [], initialScans = [], memberRole }) {
+export function RepositoryDetailClient({
+  project,
+  initialCommits = [],
+  initialScans = [],
+  initialPrChecks = [],
+  memberRole,
+}) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("overview");
+  const [prChecks, setPrChecks] = useState(initialPrChecks);
 
   // Scans & Live Job Polling
   const [scans, setScans] = useState(initialScans);
@@ -378,6 +385,15 @@ export function RepositoryDetailClient({ project, initialCommits = [], initialSc
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="commits">Commits ({initialCommits.length})</TabsTrigger>
+          <TabsTrigger value="monitoring">
+            <span className="flex items-center gap-1.5">
+              <span>Monitoring</span>
+              {prChecks.some((c) => c.hasRegression) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+              )}
+              <span className="text-[10px] opacity-70">({prChecks.length})</span>
+            </span>
+          </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -782,6 +798,174 @@ export function RepositoryDetailClient({ project, initialCommits = [], initialSc
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Monitoring Tab: Continuous PR Verification & Regression History */}
+        <TabsContent value="monitoring">
+          <Card className="border-border">
+            <CardHeader className="py-4 px-5 border-b border-border/60 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-medium">Pull Request Security Monitoring & Regression History</CardTitle>
+                <CardDescription className="text-xs">
+                  Continuous empirical verification results for pull requests, verifying known fixes and alerting on security regressions.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => router.refresh()}
+                  className="gap-1.5 text-xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Refresh</span>
+                </Button>
+                <Link href="/app/settings#integrations-section">
+                  <Button variant="secondary" size="sm" className="gap-1 text-xs">
+                    <span>Webhook Settings</span>
+                    <ExternalLink className="w-3 h-3 text-text-tertiary" />
+                  </Button>
+                </Link>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              {prChecks.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-sans">
+                    <thead className="bg-surface-raised/40 border-b border-border/60 text-[11px] font-mono text-text-tertiary">
+                      <tr>
+                        <th className="py-2.5 px-4">Pull Request</th>
+                        <th className="py-2.5 px-3">Head SHA</th>
+                        <th className="py-2.5 px-3">Status</th>
+                        <th className="py-2.5 px-4">Verification Results</th>
+                        <th className="py-2.5 px-3">Alerts</th>
+                        <th className="py-2.5 px-3">Run Evidence</th>
+                        <th className="py-2.5 px-4 text-right">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40">
+                      {prChecks.map((check) => {
+                        const evaluated = Array.isArray(check.details?.evaluatedFindings)
+                          ? check.details.evaluatedFindings
+                          : [];
+
+                        return (
+                          <tr key={check.id} className="hover:bg-surface-hover/50 transition-colors">
+                            <td className="py-3 px-4 font-medium text-text">
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1.5 font-semibold">
+                                  {check.prUrl ? (
+                                    <a
+                                      href={check.prUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-accent hover:underline flex items-center gap-1"
+                                    >
+                                      <span>#{check.prNumber}</span>
+                                      <ExternalLink className="w-2.5 h-2.5" />
+                                    </a>
+                                  ) : (
+                                    <span>#{check.prNumber}</span>
+                                  )}
+                                  <span className="text-text truncate max-w-[200px]">
+                                    {check.prTitle || `PR #${check.prNumber}`}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 font-mono text-[11px] text-text-secondary">
+                              <span className="px-1.5 py-0.5 rounded bg-surface-raised border border-border">
+                                {check.headSha.slice(0, 7)}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3">
+                              {check.status === "SUCCESS" ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  SUCCESS
+                                </span>
+                              ) : check.status === "FAILURE" ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  FAILURE
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  PENDING
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-xs">
+                              <div className="space-y-1">
+                                <div className="text-text font-medium">{check.resultsSummary || "Evaluation complete"}</div>
+                                {evaluated.length > 0 && (
+                                  <div className="text-[11px] text-text-tertiary">
+                                    {evaluated.length} finding{evaluated.length === 1 ? "" : "s"} evaluated
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-3">
+                              {check.hasRegression ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30 animate-pulse">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Regression alert
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-text-tertiary font-mono">—</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-3">
+                              <div className="flex flex-wrap gap-1">
+                                {evaluated.map((f, idx) =>
+                                  f.runId ? (
+                                    <Link
+                                      key={idx}
+                                      href={`/app/runs/${f.runId}`}
+                                      className="inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-border hover:border-accent text-accent transition-colors"
+                                      title={f.title}
+                                    >
+                                      <span>Run #{f.runId.slice(-6)}</span>
+                                      <ArrowRight className="w-2.5 h-2.5" />
+                                    </Link>
+                                  ) : null
+                                )}
+                                {evaluated.every((f) => !f.runId) && (
+                                  <span className="text-[11px] text-text-tertiary font-mono">—</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono text-[11px] text-text-tertiary whitespace-nowrap">
+                              {formatDate(check.createdAt)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-12 px-6 text-center space-y-3">
+                  <div className="w-10 h-10 rounded-full bg-surface-raised border border-border mx-auto flex items-center justify-center text-text-tertiary">
+                    <GitPullRequest className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1 max-w-md mx-auto">
+                    <p className="font-semibold text-text text-sm">No pull request verification checks yet</p>
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      When a developer opens or synchronizes a pull request, PatchProof automatically runs empirical sandbox verification against all known findings and reports results directly back to GitHub.
+                    </p>
+                  </div>
+                  <Link href="/app/settings#integrations-section">
+                    <Button variant="secondary" size="sm" className="mt-2 text-xs">
+                      Configure Webhook in Settings
+                    </Button>
+                  </Link>
                 </div>
               )}
             </CardContent>

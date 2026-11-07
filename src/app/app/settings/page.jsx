@@ -1,20 +1,41 @@
 import React from "react";
-import { Settings, Save, Shield, Sliders, Bell, Key, Server, GitBranch } from "lucide-react";
+import { cookies } from "next/headers";
+import { Settings, Save, Shield, Sliders, Bell, Key, Server, GitBranch, Webhook } from "lucide-react";
 import { getSessionUser } from "@/auth";
+import { prisma } from "@/lib/db";
+import { getActiveProject } from "@/lib/projects";
+import { isRepositoryAllowListed, getExecutionAllowedRepos } from "@/lib/execution-safety";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { WorkerSettingsSection } from "@/components/app/WorkerSettingsSection";
 import { GitHubIntegrationSection } from "@/components/app/GitHubIntegrationSection";
+import { WebhookIntegrationsSection } from "@/components/app/WebhookIntegrationsSection";
 
 export const metadata = {
-  title: "Settings",
-  description: "Workspace configuration and execution boundaries",
+  title: "Settings — Integrations & Webhooks",
+  description: "Workspace configuration, execution boundaries, and GitHub webhook integrations",
 };
 
 export default async function SettingsPage() {
   const user = await getSessionUser();
+  const cookieStore = await cookies();
+  const { activeProject } = await getActiveProject(cookieStore, user.id);
+
+  let deliveries = [];
+  if (activeProject) {
+    deliveries = await prisma.webhookDelivery.findMany({
+      where: { projectId: activeProject.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+  }
+
+  const isAllowListed = activeProject
+    ? isRepositoryAllowListed(activeProject.repoOwner, activeProject.repoName, activeProject)
+    : false;
+  const allowedRepos = getExecutionAllowedRepos();
 
   return (
     <div className="max-w-[1200px] mx-auto w-full space-y-5 font-sans">
@@ -36,6 +57,13 @@ export default async function SettingsPage() {
             <Sliders className="w-3.5 h-3.5 text-text" />
             <span>General</span>
           </button>
+          <a
+            href="#integrations-section"
+            className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left font-medium"
+          >
+            <Webhook className="w-3.5 h-3.5 text-purple-400" />
+            <span>Integrations & Webhooks</span>
+          </a>
           <a
             href="#github-section"
             className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left"
@@ -66,6 +94,18 @@ export default async function SettingsPage() {
 
         {/* Sections in Panels */}
         <div className="flex-1 w-full space-y-4">
+          {/* GitHub Webhook & PR Verification Integration Section */}
+          <div id="integrations-section">
+            <WebhookIntegrationsSection
+              project={activeProject}
+              initialHasSecret={Boolean(activeProject?.webhookSecretEncrypted)}
+              initialExecutionEnabled={Boolean(activeProject?.executionEnabled)}
+              initialIsAllowListed={isAllowListed}
+              initialAllowedRepos={allowedRepos}
+              initialDeliveries={deliveries}
+            />
+          </div>
+
           {/* GitHub Integration Card */}
           <div id="github-section">
             <GitHubIntegrationSection user={user} />
