@@ -78,7 +78,14 @@ export function ReportDetailClient({ report, doc, initialAiExplanation = null })
   const [verifyError, setVerifyError] = useState(null);
 
   // AI Security Explanation State
-  const [aiExplanation, setAiExplanation] = useState(initialAiExplanation);
+  const [aiExplanation, setAiExplanation] = useState(
+    initialAiExplanation
+      ? {
+          ...initialAiExplanation,
+          cached: true,
+        }
+      : null
+  );
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [aiError, setAiError] = useState(null);
 
@@ -143,6 +150,7 @@ export function ReportDetailClient({ report, doc, initialAiExplanation = null })
         provider: data.provider,
         model: data.model,
         content: data.data,
+        cached: Boolean(data.cached),
       });
     } catch (err) {
       console.error("AI explanation error:", err);
@@ -647,10 +655,18 @@ python -m unittest discover tests`;
           {aiExplanation?.content ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-border/40">
-                <span className="text-[11px] font-mono text-text-tertiary">
-                  Provider: <strong className="text-text">{aiExplanation.provider}</strong> | Model:{" "}
-                  <strong className="text-text">{aiExplanation.model}</strong>
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono text-text-tertiary">
+                    Provider: <strong className="text-text">{aiExplanation.provider}</strong> | Model:{" "}
+                    <strong className="text-text">{aiExplanation.model}</strong>
+                  </span>
+                  {aiExplanation.cached && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-raised border border-border text-emerald-400">
+                      <CheckCircle2 className="w-2.5 h-2.5" />
+                      Cached
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={handleGenerateAiExplanation}
@@ -675,6 +691,42 @@ python -m unittest discover tests`;
                 </span>
                 <p className="text-text-secondary leading-relaxed">{aiExplanation.content.rootCause}</p>
               </div>
+
+              {aiExplanation.content.citedEvidence?.length > 0 && (
+                <div className="p-3.5 rounded-[6px] border border-border bg-surface space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block font-mono">
+                    Cited Evidence References ({aiExplanation.content.citedEvidence.length})
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {aiExplanation.content.citedEvidence.map((cite, idx) => {
+                      let href = null;
+                      if (cite.type === "finding") href = `/app/findings/${cite.id}`;
+                      else if (cite.type === "run") href = `/app/runs/${cite.id}`;
+                      else if (cite.type === "report") href = `/app/reports/${cite.id}`;
+
+                      return href ? (
+                        <Link
+                          key={idx}
+                          href={href}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-raised border border-border hover:border-accent text-accent font-mono text-[11px] transition-colors"
+                        >
+                          <span>{cite.type}:</span>
+                          <span className="underline">{cite.name || cite.id}</span>
+                          <ArrowRight className="w-2.5 h-2.5" />
+                        </Link>
+                      ) : (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-raised border border-border text-text-tertiary font-mono text-[11px]"
+                        >
+                          <span>{cite.type}:</span>
+                          <span>{cite.name || cite.id}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {aiExplanation.content.remediationOptions?.length > 0 && (
                 <div className="space-y-3">

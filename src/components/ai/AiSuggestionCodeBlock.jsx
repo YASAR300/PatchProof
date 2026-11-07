@@ -67,3 +67,4 @@ export function AiSuggestionCodeBlock({ code, title, language = "python" }) {
     </div>
   );
 }
+

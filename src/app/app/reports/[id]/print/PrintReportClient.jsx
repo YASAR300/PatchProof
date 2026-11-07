@@ -308,13 +308,18 @@ export function PrintReportClient({ doc, reportId }) {
                   <strong className="block text-neutral-800 mb-1">Remediation Options:</strong>
                   <div className="space-y-1.5">
                     {doc.aiAnalysis.remediationOptions.map((opt, idx) => (
-                      <div key={idx} className="p-2 border border-neutral-200 bg-white rounded">
+                      <div key={idx} className="p-2 border border-neutral-200 bg-white rounded space-y-1">
                         <div className="font-semibold text-neutral-900">{opt.title}</div>
                         <div className="text-neutral-600 text-[11px]">{opt.description}</div>
                         {opt.codeSnippet && (
-                          <pre className="mt-1 p-1.5 bg-neutral-100 border border-neutral-200 rounded font-mono text-[10px] whitespace-pre">
-                            {opt.codeSnippet}
-                          </pre>
+                          <div className="mt-1.5 space-y-1">
+                            <div className="px-2 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-900 text-[10px] font-medium flex items-center gap-1">
+                              <span>AI-generated suggestion. Not verified. Review and test before use.</span>
+                            </div>
+                            <pre className="p-1.5 bg-neutral-100 border border-neutral-200 rounded font-mono text-[10px] whitespace-pre">
+                              {opt.codeSnippet}
+                            </pre>
+                          </div>
                         )}
                       </div>
                     ))}

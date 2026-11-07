@@ -63,21 +63,85 @@ export function AssistantClient({
   reports = [],
 }) {
   const [targetType, setTargetType] = useState("Finding"); // "Finding" | "VerificationRun" | "PatchReport"
-  const [selectedFindingId, setSelectedFindingId] = useState(findings[0]?.id || "");
-  const [selectedRunId, setSelectedRunId] = useState(runs[0]?.id || "");
-  const [selectedReportId, setSelectedReportId] = useState(reports[0]?.id || "");
+  const [selectedFindingId, setSelectedFindingId] = useState(() => findings[0]?.id || "");
+  const [selectedRunId, setSelectedRunId] = useState(() => runs[0]?.id || "");
+  const [selectedReportId, setSelectedReportId] = useState(() => reports[0]?.id || "");
   const [selectedTask, setSelectedTask] = useState("explain-finding");
 
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  // When target type changes, adjust default task
+  // Synchronize entity selection whenever lists change (e.g. project switcher or re-render)
+  React.useEffect(() => {
+    if (findings.length > 0) {
+      if (!selectedFindingId || !findings.some((f) => f.id === selectedFindingId)) {
+        setSelectedFindingId(findings[0].id);
+      }
+    } else {
+      setSelectedFindingId("");
+    }
+  }, [findings, selectedFindingId]);
+
+  React.useEffect(() => {
+    if (runs.length > 0) {
+      if (!selectedRunId || !runs.some((r) => r.id === selectedRunId)) {
+        setSelectedRunId(runs[0].id);
+      }
+    } else {
+      setSelectedRunId("");
+    }
+  }, [runs, selectedRunId]);
+
+  React.useEffect(() => {
+    if (reports.length > 0) {
+      if (!selectedReportId || !reports.some((p) => p.id === selectedReportId)) {
+        setSelectedReportId(reports[0].id);
+      }
+    } else {
+      setSelectedReportId("");
+    }
+  }, [reports, selectedReportId]);
+
+  // When target type changes, adjust default task and clear transient result
   const handleTargetTypeChange = (type) => {
     setTargetType(type);
-    if (type === "Finding") setSelectedTask("explain-finding");
-    else if (type === "VerificationRun") setSelectedTask("summarize-run");
-    else if (type === "PatchReport") setSelectedTask("explain-report");
+    setResult(null);
+    setError(null);
+    if (type === "Finding") {
+      setSelectedTask("explain-finding");
+      if (findings.length > 0 && (!selectedFindingId || !findings.some((f) => f.id === selectedFindingId))) {
+        setSelectedFindingId(findings[0].id);
+      }
+    } else if (type === "VerificationRun") {
+      setSelectedTask("summarize-run");
+      if (runs.length > 0 && (!selectedRunId || !runs.some((r) => r.id === selectedRunId))) {
+        setSelectedRunId(runs[0].id);
+      }
+    } else if (type === "PatchReport") {
+      setSelectedTask("explain-report");
+      if (reports.length > 0 && (!selectedReportId || !reports.some((p) => p.id === selectedReportId))) {
+        setSelectedReportId(reports[0].id);
+      }
+    }
+  };
+
+  const handleSelectFinding = (id) => {
+    setSelectedFindingId(id);
+    setResult(null);
+    setError(null);
+  };
+
+  const handleSelectRun = (id) => {
+    setSelectedRunId(id);
+    setResult(null);
+    setError(null);
+  };
+
+  const handleSelectReport = (id) => {
+    setSelectedReportId(id);
+    setResult(null);
+    setError(null);
   };
 
   const getTargetEntityId = () => {
@@ -226,12 +290,17 @@ export function AssistantClient({
                 {targetType === "Finding" && (
                   findings.length > 0 ? (
                     <select
+                      id="assistant-finding-select"
+                      name="selectedFindingId"
+                      data-testid="assistant-finding-select"
+                      key="select-finding"
                       value={selectedFindingId}
-                      onChange={(e) => setSelectedFindingId(e.target.value)}
-                      className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-sans"
+                      onChange={(e) => handleSelectFinding(e.target.value)}
+                      onInput={(e) => handleSelectFinding(e.target.value)}
+                      className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-sans cursor-pointer"
                     >
                       {findings.map((f) => (
-                        <option key={f.id} value={f.id}>
+                        <option key={f.id} value={f.id} data-id={f.id}>
                           [{f.severity}] {f.title} ({f.filePath}:{f.lineStart || 1})
                         </option>
                       ))}
@@ -246,12 +315,17 @@ export function AssistantClient({
                 {targetType === "VerificationRun" && (
                   runs.length > 0 ? (
                     <select
+                      id="assistant-run-select"
+                      name="selectedRunId"
+                      data-testid="assistant-run-select"
+                      key="select-run"
                       value={selectedRunId}
-                      onChange={(e) => setSelectedRunId(e.target.value)}
-                      className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-mono"
+                      onChange={(e) => handleSelectRun(e.target.value)}
+                      onInput={(e) => handleSelectRun(e.target.value)}
+                      className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-mono cursor-pointer"
                     >
                       {runs.map((r) => (
-                        <option key={r.id} value={r.id}>
+                        <option key={r.id} value={r.id} data-id={r.id}>
                           [{r.status}] Run #{r.id.slice(-8)} — {r.reproducerId || "reproducer"} ({String(r.commitSha).slice(0, 7)})
                         </option>
                       ))}
@@ -266,12 +340,17 @@ export function AssistantClient({
                 {targetType === "PatchReport" && (
                   reports.length > 0 ? (
                     <select
+                      id="assistant-report-select"
+                      name="selectedReportId"
+                      data-testid="assistant-report-select"
+                      key="select-report"
                       value={selectedReportId}
-                      onChange={(e) => setSelectedReportId(e.target.value)}
-                      className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-sans"
+                      onChange={(e) => handleSelectReport(e.target.value)}
+                      onInput={(e) => handleSelectReport(e.target.value)}
+                      className="w-full h-9 rounded-[6px] border border-border bg-surface px-2.5 text-xs text-text outline-none focus:border-accent hover:border-border-strong font-sans cursor-pointer"
                     >
                       {reports.map((p) => (
-                        <option key={p.id} value={p.id}>
+                        <option key={p.id} value={p.id} data-id={p.id}>
                           [{p.verdict}] Report #{p.id.slice(-8)} ({String(p.baselineCommit).slice(0, 7)} → {String(p.candidateCommit).slice(0, 7)})
                         </option>
                       ))}
@@ -285,9 +364,37 @@ export function AssistantClient({
               </div>
 
               {/* Target Preview Pill */}
-              <div className="p-2.5 rounded-[6px] bg-[#080809] border border-border text-[11px] font-mono text-text-secondary flex items-center justify-between">
-                <span className="text-text-tertiary">Selected Target ID:</span>
-                <span className="text-accent font-semibold">{getTargetEntityId() || "none"}</span>
+              <div
+                data-testid="selected-target-preview"
+                className="p-3 rounded-[6px] bg-[#080809] border border-border space-y-1.5 text-xs font-mono"
+              >
+                <div className="flex items-center justify-between text-[11px] text-text-secondary">
+                  <span className="text-text-tertiary">Selected Target ID:</span>
+                  <span data-testid="selected-target-id" className="text-accent font-semibold">
+                    {getTargetEntityId() || "none"}
+                  </span>
+                </div>
+                {targetType === "Finding" && currentFinding && (
+                  <div className="text-text-secondary font-sans text-xs truncate border-t border-border/40 pt-1.5">
+                    <span className="text-text font-medium">Target: {currentFinding.title}</span>
+                  </div>
+                )}
+                {targetType === "PatchReport" && currentReport && (
+                  <div className="text-text-secondary font-sans text-xs flex items-center justify-between border-t border-border/40 pt-1.5">
+                    <span className="text-text font-medium">Verdict: {currentReport.verdict}</span>
+                    <span className="text-text-tertiary font-mono">
+                      {String(currentReport.baselineCommit).slice(0, 7)} → {String(currentReport.candidateCommit).slice(0, 7)}
+                    </span>
+                  </div>
+                )}
+                {targetType === "VerificationRun" && currentRun && (
+                  <div className="text-text-secondary font-sans text-xs flex items-center justify-between border-t border-border/40 pt-1.5">
+                    <span className="text-text font-medium">Status: {currentRun.status}</span>
+                    <span className="text-text-tertiary font-mono">
+                      commit: {String(currentRun.commitSha).slice(0, 7)}
+                    </span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -419,3 +526,4 @@ export function AssistantClient({
     </div>
   );
 }
+

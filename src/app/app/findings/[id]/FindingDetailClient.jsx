@@ -56,7 +56,14 @@ export function FindingDetailClient({ finding: initialFinding, initialAiExplanat
   const [isUpdatingTriage, setIsUpdatingTriage] = useState(false);
 
   // AI Security Assistant Explanation State
-  const [aiExplanation, setAiExplanation] = useState(initialAiExplanation);
+  const [aiExplanation, setAiExplanation] = useState(
+    initialAiExplanation
+      ? {
+          ...initialAiExplanation,
+          cached: true,
+        }
+      : null
+  );
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [aiError, setAiError] = useState(null);
   const [triageError, setTriageError] = useState("");
@@ -265,6 +272,7 @@ export function FindingDetailClient({ finding: initialFinding, initialAiExplanat
         provider: data.provider,
         model: data.model,
         content: data.data,
+        cached: Boolean(data.cached),
       });
     } catch (err) {
       console.error("AI explanation error:", err);
@@ -918,9 +926,17 @@ export function FindingDetailClient({ finding: initialFinding, initialAiExplanat
                   <BrainCircuit className="w-3.5 h-3.5 text-purple-400" />
                   <span>Written by AI</span>
                 </div>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                  {aiExplanation?.provider || "AI-generated"}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                    {aiExplanation?.provider || "AI-generated"}
+                  </span>
+                  {aiExplanation?.cached && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-raised border border-border text-emerald-400">
+                      <CheckCircle2 className="w-2.5 h-2.5" />
+                      Cached
+                    </span>
+                  )}
+                </div>
               </div>
               {aiExplanation?.content ? (
                 <div className="space-y-1">
@@ -991,6 +1007,12 @@ export function FindingDetailClient({ finding: initialFinding, initialAiExplanat
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-surface border border-border text-text-secondary">
                 Provider: {aiExplanation.provider} ({aiExplanation.model})
               </span>
+              {aiExplanation.cached && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-surface border border-border text-emerald-400">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Cached
+                </span>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-4 space-y-4">
@@ -1011,6 +1033,42 @@ export function FindingDetailClient({ finding: initialFinding, initialAiExplanat
                 {aiExplanation.content.rootCause}
               </p>
             </div>
+
+            {aiExplanation.content.citedEvidence?.length > 0 && (
+              <div className="p-3.5 rounded-[6px] border border-border bg-surface space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary block font-mono">
+                  Cited Evidence References ({aiExplanation.content.citedEvidence.length})
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {aiExplanation.content.citedEvidence.map((cite, idx) => {
+                    let href = null;
+                    if (cite.type === "finding") href = `/app/findings/${cite.id}`;
+                    else if (cite.type === "run") href = `/app/runs/${cite.id}`;
+                    else if (cite.type === "report") href = `/app/reports/${cite.id}`;
+
+                    return href ? (
+                      <Link
+                        key={idx}
+                        href={href}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-raised border border-border hover:border-accent text-accent font-mono text-[11px] transition-colors"
+                      >
+                        <span>{cite.type}:</span>
+                        <span className="underline">{cite.name || cite.id}</span>
+                        <ArrowRight className="w-2.5 h-2.5" />
+                      </Link>
+                    ) : (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-raised border border-border text-text-tertiary font-mono text-[11px]"
+                      >
+                        <span>{cite.type}:</span>
+                        <span>{cite.name || cite.id}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {aiExplanation.content.remediationOptions?.length > 0 && (
               <div className="space-y-3">

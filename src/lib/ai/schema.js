@@ -78,3 +78,4 @@ export function filterValidCitations(citations, validEvidenceIds) {
     return (id && validEvidenceIds.has(id)) || (name && validEvidenceIds.has(name));
   });
 }
+
