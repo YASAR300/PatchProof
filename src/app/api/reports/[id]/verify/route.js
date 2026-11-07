@@ -50,6 +50,23 @@ export async function POST(req, { params }) {
 
     const verificationResult = verifyReportIntegrity(report);
 
+    // Audit event for cryptographic integrity verification
+    await prisma.auditEvent.create({
+      data: {
+        actorId: user.id,
+        projectId: report.projectId,
+        action: "REPORT_INTEGRITY_VERIFIED",
+        entityType: "PatchReport",
+        entityId: id,
+        metadata: {
+          reportId: id,
+          valid: verificationResult.valid,
+          verifiedCount: verificationResult.verifiedCount,
+          totalCount: verificationResult.totalCount,
+        },
+      },
+    });
+
     return NextResponse.json({
       ok: true,
       reportId: id,

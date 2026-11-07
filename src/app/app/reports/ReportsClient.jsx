@@ -33,6 +33,38 @@ function formatDate(isoStr) {
   }
 }
 
+export function ReviewDecisionBadge({ decision }) {
+  if (decision === "APPROVED") {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <CheckCircle2 className="w-3 h-3" />
+        <span>Approved</span>
+      </span>
+    );
+  }
+  if (decision === "CHANGES_REQUESTED") {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+        <AlertTriangle className="w-3 h-3" />
+        <span>Changes requested</span>
+      </span>
+    );
+  }
+  if (decision === "REJECTED") {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+        <XCircle className="w-3 h-3" />
+        <span>Rejected</span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium text-text-tertiary bg-surface-raised border border-border/80">
+      Pending
+    </span>
+  );
+}
+
 export function ReportsClient({ reports = [] }) {
   const [verdictFilter, setVerdictFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -161,14 +193,14 @@ export function ReportsClient({ reports = [] }) {
           <div className="grid grid-cols-12 gap-3 p-3 px-4 bg-surface-raised/40 text-[11px] font-semibold text-text-secondary uppercase tracking-wider select-none">
             <div className="col-span-3 sm:col-span-2">Verdict</div>
             <div className="col-span-6 sm:col-span-4">Finding</div>
-            <div className="hidden sm:block sm:col-span-3">Comparison</div>
+            <div className="hidden sm:block sm:col-span-2">Comparison</div>
             <div className="hidden sm:block sm:col-span-2">Created</div>
-            <div className="col-span-3 sm:col-span-1 text-right">Decision</div>
+            <div className="col-span-3 sm:col-span-2 text-right">Reviewer Decision</div>
           </div>
 
           {/* Report Rows */}
           {filteredReports.map((rep) => {
-            const reviewerDecision = rep.decisions?.[0]?.decision || "—";
+            const reviewerDecision = rep.decisions?.[0]?.decision;
 
             return (
               <Link
@@ -195,7 +227,7 @@ export function ReportsClient({ reports = [] }) {
                 </div>
 
                 {/* Comparison Baseline -> Candidate */}
-                <div className="hidden sm:flex sm:col-span-3 items-center gap-1.5 font-mono text-[11px] text-text-secondary">
+                <div className="hidden sm:flex sm:col-span-2 items-center gap-1.5 font-mono text-[11px] text-text-secondary">
                   <span className="px-1.5 py-0.5 rounded bg-surface border border-border text-text">
                     {rep.baselineCommit.slice(0, 7)}
                   </span>
@@ -211,8 +243,8 @@ export function ReportsClient({ reports = [] }) {
                 </div>
 
                 {/* Reviewer Decision */}
-                <div className="col-span-3 sm:col-span-1 text-right font-mono text-[11px] text-text-tertiary flex items-center justify-end gap-1.5">
-                  <span>{reviewerDecision}</span>
+                <div className="col-span-3 sm:col-span-2 text-right flex items-center justify-end gap-2">
+                  <ReviewDecisionBadge decision={reviewerDecision} />
                   <ArrowRight className="w-3.5 h-3.5 text-text-tertiary group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
                 </div>
               </Link>

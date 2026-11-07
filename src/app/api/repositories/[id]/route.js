@@ -62,11 +62,14 @@ export async function PATCH(req, { params }) {
     const project = await requireProjectRole(id, user.id, ["OWNER", "MEMBER"]);
 
     const body = await req.json();
-    const { name, defaultBranch } = body || {};
+    const { name, defaultBranch, language } = body || {};
 
     const updateData = {};
     if (typeof name === "string" && name.trim()) {
       updateData.name = name.trim();
+    }
+    if (typeof language === "string") {
+      updateData.language = language.trim() || null;
     }
     if (typeof defaultBranch === "string" && defaultBranch.trim()) {
       const newBranch = defaultBranch.trim();
@@ -95,6 +98,22 @@ export async function PATCH(req, { params }) {
       data: updateData,
     });
 
+    // Write audit event PROJECT_UPDATED
+    await prisma.auditEvent.create({
+      data: {
+        actorId: user.id,
+        projectId: id,
+        action: "PROJECT_UPDATED",
+        entityType: "Project",
+        entityId: id,
+        metadata: {
+          previous: { name: project.name, defaultBranch: project.defaultBranch, language: project.language },
+          updated: updateData,
+          updatedBy: user.email,
+        },
+      },
+    });
+
     return NextResponse.json({ ok: true, project: updated });
   } catch (err) {
     return NextResponse.json(
@@ -112,13 +131,18 @@ export async function DELETE(req, { params }) {
     }
 
     const { id } = await params;
-    // VIEWER cannot delete
-    const project = await requireProjectRole(id, user.id, ["OWNER", "MEMBER"]);
+    // Only OWNER can delete project
+    const project = await requireProjectRole(id, user.id, ["OWNER"]);
 
     const body = await req.json();
     const { confirmationName } = body || {};
 
-    if (confirmationName !== project.name && confirmationName !== project.repoName) {
+    const isValidConfirmation =
+      confirmationName === project.name ||
+      confirmationName === project.slug ||
+      confirmationName === project.repoName;
+
+    if (!isValidConfirmation) {
       return NextResponse.json(
         { error: "Confirmation repository name does not match." },
         { status: 400 }

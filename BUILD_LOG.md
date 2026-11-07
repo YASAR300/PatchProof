@@ -1145,7 +1145,117 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 
 ---
 
-## Step 16 Follow-up: Assistant Target Sync & Print/Export Safety Disclaimer Hardening (2026-11-07)
+## Step 17: Linear-Inspired Dashboard Workflow Integration, Reviewer Decisions, Full Audit Timeline, and Multi-Section Settings (2026-11-07)
+
+### What was built
+
+1. **/app (Security Overview Dashboard)**:
+   - **Real Data KPI Row**:
+     - *Open Findings*: Real count of findings in `OPEN` triage status alongside total discovered.
+     - *Findings by Verification State*: Live counts for `REPRODUCED`, `NOT_REPRODUCED`, `UNVERIFIED`, `INCONCLUSIVE`, and `EXECUTION_ERROR`.
+     - *Verification Runs (Last 7 Days)*: Total count of isolated container executions over the previous 7 days and all-time total.
+     - *Patch Verdict Counts*: Breakdown of `FIX_VERIFIED`, `REGRESSION_FAILURE`, and `PATCH_NOT_VERIFIED`.
+     - *Dependencies with Advisories*: Live count with direct deep link to `/app/dependencies`.
+   - **Runs per Day SVG Sparkline Chart (`RunsSparklineChart.jsx`)**:
+     - 100% custom, lightweight SVG bar/sparkline chart without heavy third-party graphing dependencies.
+     - Tracks daily verification runs across the trailing 14 calendar days with interactive hover tooltips displaying date and exact run counts.
+   - **Recent Verification Runs Table**:
+     - Most recent 5 container runs with status badges, commit hashes, reproducer IDs, and relative timestamps linking to run evidence.
+   - **Recent Patch Reports Table**:
+     - Most recent 5 patch validation reports displaying before/after commits, verdict badges, human reviewer sign-off badges, and direct links to `/app/reports/[id]`.
+   - **Attention Needed Panel**:
+     - Proactively surfaces critical items requiring engineer action:
+       - `REPRODUCED` findings lacking a verified patch (`FIX_VERIFIED`).
+       - Active regression alerts from PR checks or candidate patches that broke baseline unit tests.
+       - Worker jobs that failed within the last 7 days.
+     - Clean reassuring zero-alert state when all issues are resolved and runners are healthy.
+   - **Quick Action Toolbar**:
+     - Immediate triggers for *Run scan*, *Scan dependencies*, and *Import report*.
+   - **Skeleton Loading & Empty State**:
+     - Created `src/app/app/loading.jsx` with shimmering skeleton cards for instant feedback during route transitions.
+     - Proper onboarding empty state for fresh projects with guided initial actions.
+
+2. **Human Reviewer Decisions on /app/reports/[id]**:
+   - **Role-Based Access Enforcement**:
+     - Only `OWNER` or `MEMBER` roles can submit review decisions.
+     - `VIEWER` users see a read-only historical timeline with submission disabled and an explicit role notice.
+   - **Reviewer Action Form**:
+     - Interactive judgment selector: `Approve` (green), `Request changes` (amber), `Reject` (rose).
+     - Required reviewer comment input explaining the rationale, candidate code review, or follow-up testing needs.
+     - Submits to `POST /api/reports/[id]/decisions` and automatically appends to the decision history without altering the cryptographic test verdict.
+   - **Decision History**:
+     - Shows all reviewer sign-offs in chronological order with reviewer name/email, relative and ISO timestamps, decision badge, and feedback comments.
+   - **Report List Decision Badge**:
+     - Updated `/app/reports` (`ReportsClient.jsx`) to display the latest reviewer decision as a Linear-grade badge (`Approved`, `Changes requested`, `Rejected`, or `Pending`).
+   - **Audit Trail**:
+     - Emits `REVIEWER_DECISION` audit events with reviewer identity, decision status, comment, and report metadata.
+
+3. **/app/audit (History & Cryptographic Audit Timeline)**:
+   - **Project-Scoped & Append-Only**:
+     - Displays all `AuditEvent` records for the selected workspace with timestamp, actor, action badge, entity reference, and human-readable summary.
+   - **Multi-Faceted Filtering & Text Search**:
+     - Filter by Action (`ALL` or specific action from unique dynamic actions list).
+     - Filter by Actor (mapped to team members).
+     - Filter by Entity Type (`Project`, `Finding`, `VerificationRun`, `PatchReport`, `Dependency`, etc.).
+     - Date range filter (start date to end date).
+     - Instant full-text search matching action names, actor emails/names, entity IDs, or structured metadata JSON.
+   - **Side Drawer for Full JSON Metadata**:
+     - Slide-over inspection drawer displaying full structured event metadata with syntax highlighting, copy-to-clipboard button, and actor details.
+   - **CSV Export**:
+     - One-click `Export CSV` button that downloads RFC 4180-compliant CSV containing the currently filtered view.
+   - **Pagination**:
+     - Strict 50 rows per page with page counter and Next/Previous navigation controls.
+   - **Strict Immutability**:
+     - Zero edit or delete UI or APIs exist for audit events.
+
+4. **/app/settings (Consolidated Multi-Section Workspace Configuration)**:
+   - Left sub-navigation with 6 dedicated tabs:
+     1. **Profile**: User display name editor, avatar (rendered from GitHub or fallback initial), and password update form with verification of current password for credential accounts.
+     2. **Project**: Editable project name, default branch, and primary language; for the demo project (`isDemo: true`), test commands (reproducer script, regression suite, Docker image) are displayed read-only.
+     3. **Members**:
+        - List of workspace members with avatar, email, name, role badge (`OWNER`, `MEMBER`, `VIEWER`), and joined date.
+        - Add existing user by email with role selector (OWNER only).
+        - Update member role dropdown (OWNER only).
+        - Remove member action (OWNER only).
+        - **Invariant Enforced**: At least one `OWNER` must remain at all times. Attempts by a single owner to demote themselves or be removed are strictly blocked with HTTP 400.
+     4. **Integrations**: Webhook URL, HMAC secret reveal/rotation, execution allow-list status, and last 20 deliveries table.
+     5. **Worker**: Runner status, sandbox container environment, and worker heartbeat monitor.
+     6. **Danger Zone**:
+        - Delete project with typed confirmation (must type exact slug/name).
+        - Restricted strictly to `OWNER` role. Purges project and records `PROJECT_DELETED` audit event.
+
+5. **Audit Event Coverage Audit & Gaps Filled**:
+   - Audited all user and background actions to ensure complete audit trail coverage:
+     - `REVIEWER_DECISION` added to `POST /api/reports/[id]/decisions`.
+     - `REPORT_INTEGRITY_VERIFIED` added to `POST /api/reports/[id]/verify`.
+     - `REPOSITORY_EXECUTION_TOGGLED` added to `PATCH /api/repositories/[id]/integrations`.
+     - `PROJECT_UPDATED` added to `PATCH /api/repositories/[id]`.
+     - `MEMBER_ADDED`, `MEMBER_ROLE_UPDATED`, `MEMBER_REMOVED` added to `api/repositories/[id]/members`.
+     - `USER_PROFILE_UPDATED` added to `PATCH /api/user/profile`.
+     - `USER_PASSWORD_CHANGED` added to `POST /api/user/password`.
+
+### Files added / modified
+- `src/app/api/reports/[id]/decisions/route.js` (added: reviewer decision recording API with role checks)
+- `src/app/api/repositories/[id]/members/route.js` (added: project members management API with last owner protection)
+- `src/app/api/user/profile/route.js` (added: user profile update API)
+- `src/app/api/user/password/route.js` (added: user password change API)
+- `src/app/api/repositories/[id]/route.js` (modified: added language support, PROJECT_UPDATED audit event, OWNER delete check)
+- `src/app/api/reports/[id]/verify/route.js` (modified: added REPORT_INTEGRITY_VERIFIED audit event)
+- `src/app/api/repositories/[id]/integrations/route.js` (modified: added REPOSITORY_EXECUTION_TOGGLED audit event)
+- `src/lib/projects.js` (modified: added `getProjectRole` helper)
+- `src/components/app/RunsSparklineChart.jsx` (added: 14-day lightweight SVG runs chart)
+- `src/app/app/loading.jsx` (added: skeleton shimmer loading component for `/app`)
+- `src/app/app/page.jsx` (modified: full KPI row, 14-day chart, recent runs/reports, attention needed, quick actions)
+- `src/app/app/reports/ReportsClient.jsx` (modified: ReviewDecisionBadge in patch reports table)
+- `src/app/app/reports/[id]/page.jsx` (modified: passed currentUserRole and decisions to ReportDetailClient)
+- `src/app/app/reports/[id]/ReportDetailClient.jsx` (modified: added Reviewer Decisions card, header badge, and history list)
+- `src/app/app/audit/AuditClient.jsx` (added: search, filters, pagination, CSV export, side drawer)
+- `src/app/app/audit/page.jsx` (modified: integrated AuditClient with project-scoped events)
+- `src/components/app/SettingsClient.jsx` (added: multi-section Settings tabs with Profile, Project, Members, Danger Zone)
+- `src/app/app/settings/page.jsx` (modified: integrated SettingsClient)
+- `scripts/verify-step17.mjs` (added: automated test suite for Step 17)
+- `BUILD_LOG.md` (modified)
+
 
 ### QA Defects Resolved
 1. **Assistant Dropdown Selection Synchronization (`/app/assistant`)**:

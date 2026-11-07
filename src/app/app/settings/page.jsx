@@ -1,30 +1,59 @@
 import React from "react";
 import { cookies } from "next/headers";
-import { Settings, Save, Shield, Sliders, Bell, Key, Server, GitBranch, Webhook } from "lucide-react";
 import { getSessionUser } from "@/auth";
 import { prisma } from "@/lib/db";
-import { getActiveProject } from "@/lib/projects";
+import { getActiveProject, getProjectRole } from "@/lib/projects";
 import { isRepositoryAllowListed, getExecutionAllowedRepos } from "@/lib/execution-safety";
 import { PageHeader } from "@/components/app/PageHeader";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { WorkerSettingsSection } from "@/components/app/WorkerSettingsSection";
-import { GitHubIntegrationSection } from "@/components/app/GitHubIntegrationSection";
-import { WebhookIntegrationsSection } from "@/components/app/WebhookIntegrationsSection";
+import { SettingsClient } from "@/components/app/SettingsClient";
 
 export const metadata = {
-  title: "Settings — Integrations & Webhooks",
-  description: "Workspace configuration, execution boundaries, and GitHub webhook integrations",
+  title: "Settings — PatchProof",
+  description: "User profile, project details, access control, worker configuration, and danger zone",
 };
 
 export default async function SettingsPage() {
-  const user = await getSessionUser();
+  const sessionUser = await getSessionUser();
   const cookieStore = await cookies();
-  const { activeProject } = await getActiveProject(cookieStore, user.id);
+  const { activeProject } = await getActiveProject(cookieStore, sessionUser?.id);
 
+  // Fetch full user record to check passwordHash / avatarUrl
+  const user = sessionUser
+    ? await prisma.user.findUnique({
+        where: { id: sessionUser.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatarUrl: true,
+          passwordHash: true,
+        },
+      })
+    : null;
+
+  let members = [];
   let deliveries = [];
-  if (activeProject) {
+  let currentUserRole = "VIEWER";
+
+  if (activeProject && user) {
+    currentUserRole = (await getProjectRole(activeProject.id, user.id)) || "VIEWER";
+
+    members = await prisma.projectMember.findMany({
+      where: { projectId: activeProject.id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
     deliveries = await prisma.webhookDelivery.findMany({
       where: { projectId: activeProject.id },
       orderBy: { createdAt: "desc" },
@@ -38,137 +67,21 @@ export default async function SettingsPage() {
   const allowedRepos = getExecutionAllowedRepos();
 
   return (
-    <div className="max-w-[1200px] mx-auto w-full space-y-5 font-sans">
+    <div className="max-w-[1200px] mx-auto w-full space-y-5 font-sans pb-16">
       <PageHeader
         title="Settings"
-        description="Configure workspace preferences, execution parameters, and security policies."
-        actions={
-          <Button variant="primary" size="sm">
-            <Save className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
-            Save changes
-          </Button>
-        }
+        description="Configure your user profile, repository boundaries, team member access, webhook integrations, and worker execution limits."
       />
 
-      <div className="flex flex-col md:flex-row gap-6 items-start">
-        {/* Left Sub-navigation */}
-        <aside className="w-full md:w-48 flex-shrink-0 space-y-0.5 text-xs select-none">
-          <button className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 bg-surface-selected text-text font-medium text-left">
-            <Sliders className="w-3.5 h-3.5 text-text" />
-            <span>General</span>
-          </button>
-          <a
-            href="#integrations-section"
-            className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left font-medium"
-          >
-            <Webhook className="w-3.5 h-3.5 text-purple-400" />
-            <span>Integrations & Webhooks</span>
-          </a>
-          <a
-            href="#github-section"
-            className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left"
-          >
-            <GitBranch className="w-3.5 h-3.5 text-text-tertiary" />
-            <span>GitHub & Git</span>
-          </a>
-          <a
-            href="#worker-section"
-            className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left"
-          >
-            <Server className="w-3.5 h-3.5 text-text-tertiary" />
-            <span>Worker & Runner</span>
-          </a>
-          <button className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left">
-            <Shield className="w-3.5 h-3.5 text-text-tertiary" />
-            <span>Execution limits</span>
-          </button>
-          <button className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left">
-            <Key className="w-3.5 h-3.5 text-text-tertiary" />
-            <span>API & tokens</span>
-          </button>
-          <button className="w-full h-8 px-2.5 rounded-[6px] flex items-center gap-2 text-text-secondary hover:text-text hover:bg-surface-hover transition-colors text-left">
-            <Bell className="w-3.5 h-3.5 text-text-tertiary" />
-            <span>Notifications</span>
-          </button>
-        </aside>
-
-        {/* Sections in Panels */}
-        <div className="flex-1 w-full space-y-4">
-          {/* GitHub Webhook & PR Verification Integration Section */}
-          <div id="integrations-section">
-            <WebhookIntegrationsSection
-              project={activeProject}
-              initialHasSecret={Boolean(activeProject?.webhookSecretEncrypted)}
-              initialExecutionEnabled={Boolean(activeProject?.executionEnabled)}
-              initialIsAllowListed={isAllowListed}
-              initialAllowedRepos={allowedRepos}
-              initialDeliveries={deliveries}
-            />
-          </div>
-
-          {/* GitHub Integration Card */}
-          <div id="github-section">
-            <GitHubIntegrationSection user={user} />
-          </div>
-
-          {/* Worker Service & Sandbox Runner Section */}
-          <div id="worker-section">
-            <WorkerSettingsSection />
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Workspace details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="max-w-md">
-                <Input
-                  label="Workspace Name"
-                  defaultValue="Security Team"
-                  helperText="Display name visible across verification reports"
-                />
-              </div>
-              <div className="max-w-md">
-                <Input
-                  label="Default Target Branch"
-                  defaultValue="main"
-                  helperText="Fallback branch monitored when no PR branch is specified"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Execution boundaries</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-xs">
-              <div className="flex items-center justify-between py-1 border-b border-border/60">
-                <div>
-                  <div className="font-medium text-text">Default Execution Mode</div>
-                  <div className="text-[11px] text-text-tertiary">
-                    Repositories added via GitHub URL default to static analysis only
-                  </div>
-                </div>
-                <span className="text-[11px] font-mono text-text-secondary px-2 py-0.5 rounded-[4px] bg-surface-raised border border-border">
-                  Static Analysis
-                </span>
-              </div>
-              <div className="flex items-center justify-between py-1">
-                <div>
-                  <div className="font-medium text-text">Timeout Limits</div>
-                  <div className="text-[11px] text-text-tertiary">
-                    Maximum duration per verification test harness execution
-                  </div>
-                </div>
-                <span className="text-[11px] font-mono text-text-secondary px-2 py-0.5 rounded-[4px] bg-surface-raised border border-border">
-                  120s
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <SettingsClient
+        user={user}
+        project={activeProject}
+        initialMembers={members}
+        currentUserRole={currentUserRole}
+        isAllowListed={isAllowListed}
+        allowedRepos={allowedRepos}
+        deliveries={deliveries}
+      />
     </div>
   );
 }

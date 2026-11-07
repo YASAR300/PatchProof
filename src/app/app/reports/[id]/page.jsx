@@ -2,7 +2,7 @@ import React from "react";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/auth";
 import { prisma } from "@/lib/db";
-import { requireProjectRole } from "@/lib/projects";
+import { requireProjectRole, getProjectRole } from "@/lib/projects";
 import { buildEvidenceDocument } from "@/lib/report";
 import { ReportDetailClient } from "./ReportDetailClient";
 
@@ -38,7 +38,12 @@ export default async function ReportDetailPage({ params }) {
       },
       artifacts: true,
       decisions: {
-        include: { reviewer: true },
+        orderBy: { createdAt: "desc" },
+        include: {
+          reviewer: {
+            select: { id: true, name: true, email: true, avatarUrl: true },
+          },
+        },
       },
     },
   });
@@ -49,6 +54,7 @@ export default async function ReportDetailPage({ params }) {
 
   // Ensure user has membership/access to project
   await requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
+  const currentUserRole = await getProjectRole(report.projectId, user.id);
 
   const aiExplanation = await prisma.aiExplanation.findFirst({
     where: { entityType: "PatchReport", entityId: id },
@@ -62,6 +68,8 @@ export default async function ReportDetailPage({ params }) {
       report={report}
       doc={doc}
       initialAiExplanation={aiExplanation}
+      currentUserRole={currentUserRole}
+      currentUserId={user.id}
     />
   );
 }

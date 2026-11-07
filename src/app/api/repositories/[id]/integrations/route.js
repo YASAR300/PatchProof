@@ -87,6 +87,21 @@ export async function PATCH(req, { params }) {
       data: updateData,
     });
 
+    // Write audit event for execution toggle
+    await prisma.auditEvent.create({
+      data: {
+        actorId: user.id,
+        projectId: project.id,
+        action: "REPOSITORY_EXECUTION_TOGGLED",
+        entityType: "Project",
+        entityId: project.id,
+        metadata: {
+          executionEnabled: updated.executionEnabled,
+          updatedBy: user.email,
+        },
+      },
+    });
+
     return NextResponse.json({
       ok: true,
       project: updated,
@@ -99,3 +114,4 @@ export async function PATCH(req, { params }) {
     );
   }
 }
+

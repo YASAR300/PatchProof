@@ -98,6 +98,15 @@ export async function requireProjectRole(projectId, userId, minimumRoles = ["OWN
 }
 
 /**
+ * Returns the user's role on the project (OWNER, MEMBER, VIEWER) or null.
+ */
+export async function getProjectRole(projectId, userId) {
+  if (!projectId || !userId) return null;
+  const project = await getProjectForUser(projectId, userId);
+  return project?.memberRole || null;
+}
+
+/**
  * Creates a URL-safe, unique slug from a repo name.
  */
 export async function generateProjectSlug(baseName) {

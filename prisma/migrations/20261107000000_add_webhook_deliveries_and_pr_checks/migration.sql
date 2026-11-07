@@ -49,3 +49,4 @@ ALTER TABLE "WebhookDelivery" ADD CONSTRAINT "WebhookDelivery_projectId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "PullRequestCheck" ADD CONSTRAINT "PullRequestCheck_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

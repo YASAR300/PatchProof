@@ -87,3 +87,4 @@ export function checkPrExecutionAllowed(project) {
 
   return { allowed: true };
 }
+

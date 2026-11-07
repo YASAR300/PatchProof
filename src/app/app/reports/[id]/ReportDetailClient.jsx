@@ -27,6 +27,7 @@ import {
   ChevronDown,
   RefreshCw,
   Search,
+  UserCheck,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -65,12 +66,26 @@ export function ProvenanceTag({ type }) {
   return null;
 }
 
-export function ReportDetailClient({ report, doc, initialAiExplanation = null }) {
+export function ReportDetailClient({
+  report,
+  doc,
+  initialAiExplanation = null,
+  currentUserRole = "VIEWER",
+  currentUserId = null,
+}) {
   const router = useRouter();
   const [copiedSha, setCopiedSha] = useState(false);
   const [copiedDiff, setCopiedDiff] = useState(false);
   const [copiedCommands, setCopiedCommands] = useState(false);
   const [copiedReportHash, setCopiedReportHash] = useState(false);
+
+  // Reviewer Decisions State
+  const [decisionsList, setDecisionsList] = useState(() => report.decisions || []);
+  const [selectedDecision, setSelectedDecision] = useState("APPROVED");
+  const [decisionComment, setDecisionComment] = useState("");
+  const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
+  const [decisionError, setDecisionError] = useState(null);
+  const [decisionSuccess, setDecisionSuccess] = useState(null);
 
   // Integrity verification state
   const [isVerifying, setIsVerifying] = useState(false);
@@ -88,6 +103,47 @@ export function ReportDetailClient({ report, doc, initialAiExplanation = null })
   );
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [aiError, setAiError] = useState(null);
+
+  const handleSubmitDecision = async (e) => {
+    e?.preventDefault();
+    if (!selectedDecision) {
+      setDecisionError("Please select a decision (Approve, Request changes, or Reject).");
+      return;
+    }
+    if (!decisionComment.trim()) {
+      setDecisionError("A comment explaining your decision is required.");
+      return;
+    }
+
+    setIsSubmittingDecision(true);
+    setDecisionError(null);
+    setDecisionSuccess(null);
+
+    try {
+      const res = await fetch(`/api/reports/${report.id}/decisions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decision: selectedDecision,
+          comment: decisionComment.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to record decision (HTTP ${res.status})`);
+      }
+
+      setDecisionsList((prev) => [data.decision, ...prev]);
+      setDecisionComment("");
+      setDecisionSuccess(`Decision '${data.decision.decision}' recorded successfully.`);
+      router.refresh();
+    } catch (err) {
+      setDecisionError(err.message || "Failed to record reviewer decision");
+    } finally {
+      setIsSubmittingDecision(false);
+    }
+  };
 
   const finding = report.finding;
   const project = report.project;
@@ -260,6 +316,23 @@ python -m unittest discover tests`;
             <span className="text-xs font-mono text-text-secondary">
               {report.baselineCommit.slice(0, 7)} → {report.candidateCommit.slice(0, 7)}
             </span>
+            {decisionsList[0] && (
+              <span
+                data-testid="header-reviewer-decision-badge"
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                  decisionsList[0].decision === "APPROVED"
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : decisionsList[0].decision === "CHANGES_REQUESTED"
+                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                    : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                }`}
+              >
+                {decisionsList[0].decision === "APPROVED" && <CheckCircle2 className="w-3 h-3" />}
+                {decisionsList[0].decision === "CHANGES_REQUESTED" && <AlertTriangle className="w-3 h-3" />}
+                {decisionsList[0].decision === "REJECTED" && <XCircle className="w-3 h-3" />}
+                <span>{decisionsList[0].decision.replace(/_/g, " ")}</span>
+              </span>
+            )}
           </div>
           <h1 className="text-xl sm:text-2xl font-semibold text-text tracking-tight truncate">
             {finding?.title || "Patch Validation Report"}
@@ -871,6 +944,208 @@ python -m unittest discover tests`;
           <pre className="leading-relaxed whitespace-pre font-mono text-[12px] text-emerald-300">
             {reproduceCommands}
           </pre>
+        </CardContent>
+      </Card>
+
+      {/* Reviewer Decisions Panel */}
+      <Card id="reviewer-decisions-panel" className="border-border overflow-hidden">
+        <CardHeader className="py-3 px-4 border-b border-border/60 bg-surface-raised/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-purple-400" />
+            <CardTitle className="text-sm font-medium">Reviewer Decisions & Human Sign-off</CardTitle>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface border border-border text-text-tertiary">
+              Human Judgment
+            </span>
+          </div>
+          <div className="text-[11px] font-mono text-text-tertiary">
+            Your Role: <span className="text-text font-semibold">{currentUserRole}</span>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-4 space-y-5 text-xs">
+          <p className="text-text-secondary leading-relaxed text-xs">
+            Reviewer decisions record human judgments next to automated verification evidence. They do not alter the cryptographic test verdict or matrix results.
+          </p>
+
+          {/* Decision Submission Form for OWNER / MEMBER */}
+          {currentUserRole === "OWNER" || currentUserRole === "MEMBER" ? (
+            <form onSubmit={handleSubmitDecision} className="p-4 rounded-[6px] border border-border bg-[#080809] space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-text-tertiary uppercase tracking-wider block font-mono">
+                  Record Review Judgment
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    data-testid="decision-btn-approve"
+                    onClick={() => setSelectedDecision("APPROVED")}
+                    className={`py-2 px-3 rounded-[6px] border text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      selectedDecision === "APPROVED"
+                        ? "bg-emerald-500/15 border-emerald-500/60 text-emerald-300 shadow-sm"
+                        : "bg-surface border-border text-text-secondary hover:border-border-strong hover:text-text"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Approve</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="decision-btn-request-changes"
+                    onClick={() => setSelectedDecision("CHANGES_REQUESTED")}
+                    className={`py-2 px-3 rounded-[6px] border text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      selectedDecision === "CHANGES_REQUESTED"
+                        ? "bg-amber-500/15 border-amber-500/60 text-amber-300 shadow-sm"
+                        : "bg-surface border-border text-text-secondary hover:border-border-strong hover:text-text"
+                    }`}
+                  >
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <span>Request Changes</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-testid="decision-btn-reject"
+                    onClick={() => setSelectedDecision("REJECTED")}
+                    className={`py-2 px-3 rounded-[6px] border text-xs font-medium flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      selectedDecision === "REJECTED"
+                        ? "bg-rose-500/15 border-rose-500/60 text-rose-300 shadow-sm"
+                        : "bg-surface border-border text-text-secondary hover:border-border-strong hover:text-text"
+                    }`}
+                  >
+                    <XCircle className="w-4 h-4 text-rose-400" />
+                    <span>Reject</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="decision-comment" className="text-[11px] font-bold text-text-tertiary uppercase tracking-wider block font-mono">
+                  Reviewer Comment <span className="text-rose-400">*</span>
+                </label>
+                <textarea
+                  id="decision-comment"
+                  data-testid="decision-comment-input"
+                  rows={3}
+                  value={decisionComment}
+                  onChange={(e) => setDecisionComment(e.target.value)}
+                  placeholder="Explain the reason for your decision, feedback on the candidate diff, or required verification follow-ups..."
+                  className="w-full p-2.5 rounded-[6px] border border-border bg-surface text-xs text-text placeholder:text-text-tertiary outline-none focus:border-accent"
+                  required
+                />
+              </div>
+
+              {decisionError && (
+                <div data-testid="decision-error-banner" className="p-2.5 rounded-[5px] border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs">
+                  {decisionError}
+                </div>
+              )}
+
+              {decisionSuccess && (
+                <div data-testid="decision-success-banner" className="p-2.5 rounded-[5px] border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{decisionSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  data-testid="submit-decision-btn"
+                  disabled={isSubmittingDecision || !decisionComment.trim()}
+                  className="gap-1.5"
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>{isSubmittingDecision ? "Recording..." : "Record Decision"}</span>
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div data-testid="decision-viewer-notice" className="p-3 rounded-[6px] border border-border bg-surface-raised/40 text-text-secondary text-xs flex items-center gap-2.5">
+              <ShieldAlert className="w-4 h-4 text-text-tertiary shrink-0" />
+              <span>
+                View-only access: only project <strong>OWNER</strong> or <strong>MEMBER</strong> can record decisions. You can inspect the decision history below.
+              </span>
+            </div>
+          )}
+
+          {/* Decision History Section */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between border-b border-border pb-1.5 text-xs">
+              <span className="font-semibold text-text">Decision History ({decisionsList.length})</span>
+              <span className="font-mono text-[11px] text-text-tertiary">Append-only audit</span>
+            </div>
+
+            {decisionsList.length === 0 ? (
+              <div data-testid="no-decisions-msg" className="p-6 text-center text-xs text-text-tertiary border border-dashed border-border rounded-[6px]">
+                No reviewer decisions recorded yet. Decisions represent human sign-off next to automated test evidence.
+              </div>
+            ) : (
+              <div data-testid="decisions-history-list" className="space-y-2.5">
+                {decisionsList.map((dec) => {
+                  const isApprove = dec.decision === "APPROVED";
+                  const isChanges = dec.decision === "CHANGES_REQUESTED";
+                  const isReject = dec.decision === "REJECTED";
+
+                  return (
+                    <div
+                      key={dec.id}
+                      data-testid={`decision-item-${dec.id}`}
+                      className="p-3 rounded-[6px] border border-border bg-surface space-y-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                              isApprove
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : isChanges
+                                ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                            }`}
+                          >
+                            {isApprove && <CheckCircle2 className="w-3 h-3" />}
+                            {isChanges && <AlertTriangle className="w-3 h-3" />}
+                            {isReject && <XCircle className="w-3 h-3" />}
+                            <span>{dec.decision.replace(/_/g, " ")}</span>
+                          </span>
+
+                          <span className="text-text font-medium">
+                            {dec.reviewer?.name || dec.reviewer?.email || "Reviewer"}
+                          </span>
+                          {dec.reviewer?.email && dec.reviewer?.name && (
+                            <span className="text-text-tertiary font-mono text-[11px]">
+                              ({dec.reviewer.email})
+                            </span>
+                          )}
+                        </div>
+
+                        <span
+                          className="font-mono text-[11px] text-text-tertiary"
+                          title={new Date(dec.createdAt).toISOString()}
+                        >
+                          {new Date(dec.createdAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+
+                      {dec.comment && (
+                        <div className="text-text-secondary leading-relaxed bg-[#080809] p-2.5 rounded border border-border/60 font-sans text-xs whitespace-pre-wrap">
+                          {dec.comment}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
