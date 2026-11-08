@@ -271,7 +271,7 @@ staleCheckTimer = setInterval(sweepStaleJobs, 15000);
 pollTimer = setInterval(pollLoop, 2000);
 
 // Lightweight health-check HTTP server for platforms like Render/Railway/Heroku
-const PORT = parseInt(process.env.WORKER_PORT || "10000", 10);
+const PORT = parseInt(process.env.PORT || process.env.WORKER_PORT || "10000", 10);
 const healthServer = http.createServer((req, res) => {
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
