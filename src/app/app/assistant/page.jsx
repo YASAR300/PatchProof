@@ -15,7 +15,7 @@ export default async function AssistantPage() {
   const cookieStore = await cookies();
   const { activeProject } = await getActiveProject(cookieStore, user.id);
 
-  const whereProject = activeProject ? { projectId: activeProject.id } : {};
+  const whereProject = activeProject ? { projectId: activeProject.id } : { projectId: "__NONE__" };
 
   const [findings, runs, reports] = await Promise.all([
     prisma.finding.findMany({

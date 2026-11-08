@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { rateLimiter, getClientIp } from "@/lib/rate-limit";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -11,6 +12,15 @@ const signupSchema = z.object({
 
 export async function POST(req) {
   try {
+    const ip = getClientIp(req);
+    const limitResult = rateLimiter.check(`signup:${ip}`, 10, 900000); // 10 attempts per 15 min
+    if (!limitResult.success) {
+      return NextResponse.json(
+        { error: "Too many registration attempts. Please wait 15 minutes before retrying." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(limitResult.resetMs / 1000)) } }
+      );
+    }
+
     const body = await req.json();
     const result = signupSchema.safeParse(body);
 

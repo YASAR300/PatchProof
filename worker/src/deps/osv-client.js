@@ -1,4 +1,5 @@
 import { compareVersions } from "./version-utils.js";
+import { safeFetch } from "../../../src/lib/ssrf.js";
 
 const OSV_BATCH_URL = "https://api.osv.dev/v1/querybatch";
 const OSV_VULN_URL = "https://api.osv.dev/v1/vulns/";
@@ -157,7 +158,7 @@ async function fetchWithRetry(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS)
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(url, {
+      const response = await safeFetch(url, {
         ...options,
         signal: controller.signal,
       });

@@ -3,6 +3,7 @@ import { getSessionUser } from "@/auth";
 import { prisma } from "@/lib/db";
 import { requireProjectRole } from "@/lib/projects";
 import { generate } from "@/lib/ai";
+import { rateLimiter, getClientIp } from "@/lib/rate-limit";
 
 const VALID_TASKS = [
   "explain-finding",
@@ -23,12 +24,47 @@ export async function GET(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Rate limiting: 30 AI explain requests per 10 minutes per user/IP
+    const ip = getClientIp(req);
+    const limitResult = rateLimiter.check(`ai-explain:${user.id}:${ip}`, 30, 600000);
+    if (!limitResult.success) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded for AI assistant. Please wait before submitting more queries." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(limitResult.resetMs / 1000)) } }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const entityType = searchParams.get("entityType");
     const entityId = searchParams.get("entityId");
 
     if (!entityType || !entityId) {
       return NextResponse.json({ error: "entityType and entityId are required" }, { status: 400 });
+    }
+
+    // Resolve target project and check authorization
+    let targetProjectId = null;
+    const lowerType = entityType.toLowerCase();
+    if (lowerType === "finding") {
+      const item = await prisma.finding.findUnique({ where: { id: entityId }, select: { projectId: true } });
+      targetProjectId = item?.projectId;
+    } else if (lowerType === "verificationrun" || lowerType === "run") {
+      const item = await prisma.verificationRun.findUnique({ where: { id: entityId }, select: { projectId: true } });
+      targetProjectId = item?.projectId;
+    } else if (lowerType === "patchreport" || lowerType === "report") {
+      const item = await prisma.patchReport.findUnique({ where: { id: entityId }, select: { projectId: true } });
+      targetProjectId = item?.projectId;
+    }
+
+    if (targetProjectId) {
+      try {
+        await requireProjectRole(targetProjectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
+      } catch {
+        return NextResponse.json(
+          { error: "Forbidden: You are not a member of this project." },
+          { status: 403 }
+        );
+      }
     }
 
     const explanation = await prisma.aiExplanation.findFirst({
@@ -62,6 +98,16 @@ export async function POST(req) {
     const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limiting: 30 AI explain requests per 10 minutes per user/IP
+    const ip = getClientIp(req);
+    const limitResult = rateLimiter.check(`ai-explain:${user.id}:${ip}`, 30, 600000);
+    if (!limitResult.success) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded for AI assistant. Please wait before submitting more queries." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(limitResult.resetMs / 1000)) } }
+      );
     }
 
     const body = await req.json().catch(() => ({}));

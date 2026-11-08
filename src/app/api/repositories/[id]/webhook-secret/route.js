@@ -17,7 +17,7 @@ export async function POST(req, { params }) {
     }
 
     const { id } = await params;
-    const project = await requireProjectRole(id, user.id, ["OWNER", "MEMBER"]);
+    const project = await requireProjectRole(id, user.id, ["OWNER"]);
 
     const newSecret = generateWebhookSecret();
     const encryptedSecret = encryptSecret(newSecret);

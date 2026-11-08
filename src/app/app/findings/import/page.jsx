@@ -1,5 +1,5 @@
 import React from "react";
-import { getSessionUser } from "@/auth";
+import { requireUser } from "@/auth";
 import { getUserProjects } from "@/lib/projects";
 import { ImportFindingsClient } from "./ImportFindingsClient";
 
@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default async function ImportFindingsPage() {
-  const user = await getSessionUser();
+  const user = await requireUser();
   const projects = user ? await getUserProjects(user.id) : [];
 
   return (

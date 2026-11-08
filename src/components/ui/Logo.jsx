@@ -21,7 +21,7 @@ export function Logo({
   const selectedSize = sizeStyles[size] || sizeStyles.md;
 
   const content = (
-    <div className={cn("inline-flex items-center gap-2 select-none text-text", className)}>
+    <div className={cn("inline-flex items-center gap-2 select-none text-current", className)}>
       {/* Precision Stitched Security Shield */}
       <svg
         className={cn("flex-shrink-0", selectedSize.mark, markClassName)}
@@ -40,8 +40,8 @@ export function Logo({
       </svg>
 
       {!isMarkOnly && (
-        <span className={cn("font-bold tracking-tight text-text", selectedSize.text, textClassName)}>
-          Patch<span className="text-[#5B6CFF]">Proof</span>
+        <span className={cn("font-bold tracking-tight text-current", selectedSize.text, textClassName)}>
+          Patch<span className="text-[#3b49df] dark:text-[#7b89ff]">Proof</span>
         </span>
       )}
     </div>

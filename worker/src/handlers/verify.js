@@ -9,6 +9,7 @@ import { runInSandbox } from "../sandbox.js";
 import { getDockerVersion } from "../docker-info.js";
 import { classifyRuns, parseOracleOutput } from "../../../src/lib/classify.js";
 import { resolveReproducer } from "../../../src/lib/reproducers.js";
+import { redactSecrets } from "../../../src/lib/redact.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -270,7 +271,7 @@ export async function executeVerificationForCommit({
   });
 
   // Store EvidenceArtifacts (LOG and TEST_RESULT)
-  const fullLogContent =
+  const rawLogContent =
     `PATCHPROOF VERIFICATION RUN EVIDENCE\n` +
     `Finding: ${finding.title}\n` +
     `Commit: ${actualCommitSha}\n` +
@@ -281,6 +282,8 @@ export async function executeVerificationForCommit({
     combinedStdout +
     "\n" +
     (combinedStderr ? `=== STANDARD ERROR LOGS ===\n` + combinedStderr : "");
+
+  const fullLogContent = redactSecrets(rawLogContent);
 
   const fullLogHash = crypto.createHash("sha256").update(fullLogContent).digest("hex");
   const testResultStr = JSON.stringify(assertionsJson, null, 2);

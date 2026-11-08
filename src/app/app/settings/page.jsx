@@ -1,6 +1,6 @@
 import React from "react";
 import { cookies } from "next/headers";
-import { getSessionUser } from "@/auth";
+import { requireUser } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getActiveProject, getProjectRole } from "@/lib/projects";
 import { isRepositoryAllowListed, getExecutionAllowedRepos } from "@/lib/execution-safety";
@@ -13,7 +13,7 @@ export const metadata = {
 };
 
 export default async function SettingsPage() {
-  const sessionUser = await getSessionUser();
+  const sessionUser = await requireUser();
   const cookieStore = await cookies();
   const { activeProject } = await getActiveProject(cookieStore, sessionUser?.id);
 

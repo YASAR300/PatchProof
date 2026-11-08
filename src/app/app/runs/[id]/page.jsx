@@ -39,7 +39,11 @@ export default async function RunDetailPage({ params }) {
   }
 
   // Ensure user has access to project
-  await requireProjectRole(run.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
+  try {
+    await requireProjectRole(run.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
+  } catch {
+    notFound();
+  }
 
   return <RunDetailClient run={run} />;
 }

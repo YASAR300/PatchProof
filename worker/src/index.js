@@ -3,6 +3,7 @@ import process from "node:process";
 import http from "node:http";
 import { prisma } from "./db.js";
 import { getDockerVersion, getSandboxRuntime } from "./docker-info.js";
+import { redactSecrets } from "../../src/lib/redact.js";
 import { handleSelfTest } from "./handlers/selftest.js";
 import { handleScan } from "./handlers/scan.js";
 import { handleDependencyScan } from "./handlers/dependency-scan.js";
@@ -39,8 +40,9 @@ console.log(`[worker] Registered job handlers: ${Array.from(handlers.keys()).joi
 function createJobLogger(jobId) {
   return async function appendLog(message) {
     const timestamp = new Date().toISOString();
-    const line = `[${timestamp}] ${message}\n`;
-    console.log(`[job:${jobId}] ${message}`);
+    const safeMessage = redactSecrets(message);
+    const line = `[${timestamp}] ${safeMessage}\n`;
+    console.log(`[job:${jobId}] ${safeMessage}`);
 
     try {
       const current = await prisma.job.findUnique({

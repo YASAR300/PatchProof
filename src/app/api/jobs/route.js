@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getSessionUser } from "@/auth";
 import { prisma } from "@/lib/db";
+import { getUserProjects, requireProjectRole } from "@/lib/projects";
+import { rateLimiter, getClientIp } from "@/lib/rate-limit";
 
 const ALLOWED_JOB_TYPES = ["selftest", "scan", "dependency-scan", "verify", "patch-validate", "pr-check"];
 
+const postJobSchema = z.object({
+  type: z.enum(ALLOWED_JOB_TYPES),
+  projectId: z.string().trim().optional(),
+  payload: z.record(z.any()).optional().default({}),
+});
+
 /**
  * GET /api/jobs?limit=&type=
- * Returns recent jobs along with worker status and queue metrics.
+ * Returns recent jobs scoped strictly to projects accessible by the authenticated user.
  */
 export async function GET(req) {
   try {
@@ -19,7 +28,20 @@ export async function GET(req) {
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "10", 10), 1), 50);
     const type = searchParams.get("type");
 
-    const where = type ? { type } : {};
+    const userProjects = await getUserProjects(user.id);
+    const userProjectIds = userProjects.map((p) => p.id);
+
+    // Scoped where condition: only jobs belonging to user's projects or created by this user
+    const where = {
+      OR: [
+        { projectId: { in: userProjectIds } },
+        { createdById: user.id },
+      ],
+    };
+
+    if (type && ALLOWED_JOB_TYPES.includes(type)) {
+      where.type = type;
+    }
 
     let jobs = [];
     let queueDepth = 0;
@@ -37,7 +59,13 @@ export async function GET(req) {
 
     try {
       queueDepth = await prisma.job.count({
-        where: { status: "QUEUED" },
+        where: {
+          status: "QUEUED",
+          OR: [
+            { projectId: { in: userProjectIds } },
+            { createdById: user.id },
+          ],
+        },
       });
     } catch (err) {
       console.warn("[api/jobs] Queue count error:", err.message);
@@ -79,7 +107,7 @@ export async function GET(req) {
 
 /**
  * POST /api/jobs
- * Creates a new queued job (authenticated, allowed job types only).
+ * Creates a new queued job (rate-limited, validated, and role-authorized).
  */
 export async function POST(req) {
   try {
@@ -88,16 +116,43 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { type, projectId, payload } = body || {};
-
-    if (!type || !ALLOWED_JOB_TYPES.includes(type)) {
+    // Rate limiting: 30 jobs per 10 minutes per user/IP
+    const ip = getClientIp(req);
+    const limitResult = rateLimiter.check(`job-create:${user.id}:${ip}`, 30, 600000);
+    if (!limitResult.success) {
       return NextResponse.json(
+        { error: "Rate limit exceeded for job dispatch. Please wait before queuing more jobs." },
         {
-          error: `Job type '${type}' is not allowed. Supported types: ${ALLOWED_JOB_TYPES.join(", ")}`,
-        },
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil(limitResult.resetMs / 1000)),
+          },
+        }
+      );
+    }
+
+    const rawBody = await req.json().catch(() => ({}));
+    const parseResult = postJobSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: parseResult.error.errors[0]?.message || "Invalid job configuration." },
         { status: 400 }
       );
+    }
+
+    const { type, projectId, payload } = parseResult.data;
+
+    // Authorization check: if projectId is specified, user must have OWNER or MEMBER role
+    if (projectId) {
+      try {
+        await requireProjectRole(projectId, user.id, ["OWNER", "MEMBER"]);
+      } catch (roleErr) {
+        return NextResponse.json(
+          { error: roleErr.message || "Forbidden: You cannot enqueue jobs for this project." },
+          { status: 403 }
+        );
+      }
     }
 
     const job = await prisma.job.create({
@@ -118,4 +173,3 @@ export async function POST(req) {
     );
   }
 }
-

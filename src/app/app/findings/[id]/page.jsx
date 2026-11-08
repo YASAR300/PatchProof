@@ -69,7 +69,11 @@ export default async function FindingDetailPage({ params }) {
   }
 
   // Ensure user has access to project
-  await requireProjectRole(finding.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
+  try {
+    await requireProjectRole(finding.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
+  } catch {
+    notFound();
+  }
 
   const initialAiExplanation = await prisma.aiExplanation.findFirst({
     where: { entityType: "Finding", entityId: id },

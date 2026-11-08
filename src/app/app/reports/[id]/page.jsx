@@ -53,7 +53,11 @@ export default async function ReportDetailPage({ params }) {
   }
 
   // Ensure user has membership/access to project
-  await requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
+  try {
+    await requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
+  } catch {
+    notFound();
+  }
   const currentUserRole = await getProjectRole(report.projectId, user.id);
 
   const aiExplanation = await prisma.aiExplanation.findFirst({

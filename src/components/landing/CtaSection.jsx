@@ -59,7 +59,7 @@ export function CtaSection() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   aria-label="Work email address for early access"
-                  className="flex-1 h-full px-5 rounded-full bg-transparent text-[15px] text-[#0b0b0c] placeholder:text-text-tertiary focus:outline-none"
+                  className="flex-1 h-full px-5 rounded-full bg-transparent text-[15px] text-[#0b0b0c] placeholder:text-text-secondary focus:outline-none"
                 />
                 <button
                   type="submit"
@@ -71,7 +71,7 @@ export function CtaSection() {
             </div>
           )}
 
-          <div className="text-[13px] text-text-tertiary font-medium">
+          <div className="text-[13px] text-text-secondary font-medium">
             No credit card. Demo project included.
           </div>
         </div>

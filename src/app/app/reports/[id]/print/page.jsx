@@ -48,7 +48,11 @@ export default async function PrintReportPage({ params }) {
   }
 
   // Ensure user has membership/access to project
-  await requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
+  try {
+    await requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"]);
+  } catch {
+    notFound();
+  }
 
   const aiExplanation = await prisma.aiExplanation.findFirst({
     where: { entityType: "PatchReport", entityId: id },

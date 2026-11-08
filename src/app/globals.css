@@ -270,3 +270,11 @@ select:focus-visible,
     scroll-behavior: auto !important;
   }
 }
+
+/* Mobile responsive compact screens (<= 360px) */
+@media (max-width: 380px) {
+  .responsive-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

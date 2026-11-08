@@ -119,7 +119,7 @@ export function PlansAndFaqSection() {
                   {plan.description}
                 </p>
                 <div className="pt-4 border-t border-border/60 space-y-3">
-                  <div className="text-[12px] font-mono uppercase tracking-wider text-text-tertiary font-bold">
+                  <div className="text-[12px] font-mono uppercase tracking-wider text-text-secondary font-bold">
                     What's included:
                   </div>
                   <ul className="space-y-2.5">

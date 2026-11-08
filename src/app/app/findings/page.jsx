@@ -17,9 +17,12 @@ export default async function FindingsPage() {
 
   // Resolve projects for user
   const userProjects = await getUserProjects(user.id);
-  const targetProjectIds = activeProjectId
-    ? [activeProjectId]
-    : userProjects.map((p) => p.id);
+  const userProjectIds = userProjects.map((p) => p.id);
+  const validActiveProjectId =
+    activeProjectId && userProjectIds.includes(activeProjectId) ? activeProjectId : null;
+  const targetProjectIds = validActiveProjectId
+    ? [validActiveProjectId]
+    : userProjectIds;
 
   let initialFindings = [];
   if (targetProjectIds.length > 0) {

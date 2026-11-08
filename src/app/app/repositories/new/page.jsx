@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { requireUser } from "@/auth";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { ConnectRepositoryForm } from "@/components/app/ConnectRepositoryForm";
@@ -10,7 +11,8 @@ export const metadata = {
   description: "Connect a new GitHub repository to PatchProof",
 };
 
-export default function NewRepositoryPage() {
+export default async function NewRepositoryPage() {
+  await requireUser();
   return (
     <div className="max-w-[560px] mx-auto w-full space-y-4 font-sans">
       <div className="mb-1">

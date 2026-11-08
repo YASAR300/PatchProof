@@ -115,12 +115,12 @@ export function HeroSection() {
                   <div className="p-3 rounded-[10px] bg-[#fbfbfd] border border-border">
                     <div className="flex items-center justify-between text-[12px] font-mono">
                       <span className="font-semibold text-text">CVE-2024-4821</span>
-                      <span className="text-[#f87171] font-bold">CRITICAL</span>
+                      <span className="text-[#b91c1c] font-bold">CRITICAL</span>
                     </div>
                     <p className="text-[13px] font-medium text-text mt-1">
                       SQL Injection in users query parser
                     </p>
-                    <div className="text-[11px] font-mono text-text-tertiary mt-1">
+                    <div className="text-[11px] font-mono text-text-secondary mt-1">
                       src/users.py:42
                     </div>
                   </div>
@@ -137,12 +137,12 @@ export function HeroSection() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between pb-3 border-b border-border/60">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#f87171]" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#dc2626]" />
                     <span className="text-[12px] font-mono uppercase text-text font-bold">
                       Controlled Test Harness
                     </span>
                   </div>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#fef2f2] text-[#f87171] font-bold border border-[#fecaca]">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#fef2f2] text-[#b91c1c] font-bold border border-[#fecaca]">
                     REPRODUCED
                   </span>
                 </div>
@@ -159,7 +159,7 @@ export function HeroSection() {
               </div>
               <div className="pt-2 text-[12px] text-text-secondary font-mono flex items-center justify-between border-t border-border/40">
                 <span>Oracle Status</span>
-                <span className="text-[#f87171] font-semibold">Flaw confirmed</span>
+                <span className="text-[#b91c1c] font-semibold">Flaw confirmed</span>
               </div>
             </div>
 
@@ -167,10 +167,10 @@ export function HeroSection() {
             <div className="lg:col-span-3 rounded-[18px] bg-white border border-[#d8dbf8] p-5 shadow-sm flex flex-col justify-between space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between pb-3 border-b border-border/60">
-                  <span className="text-[12px] font-mono uppercase text-[#16a34a] font-bold">
+                  <span className="text-[12px] font-mono uppercase text-[#15803d] font-bold">
                     Patch Verdict
                   </span>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#ecfdf5] text-[#16a34a] font-bold border border-[#a7f3d0]">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#ecfdf5] text-[#15803d] font-bold border border-[#a7f3d0]">
                     FIX_VERIFIED
                   </span>
                 </div>
@@ -178,21 +178,21 @@ export function HeroSection() {
                   <div className="p-2.5 rounded-[8px] bg-[#fbfbfd] border border-border text-[12px] space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-text">Baseline</span>
-                      <span className="text-[#f87171] font-mono text-[11px]">Vulnerable</span>
+                      <span className="text-[#b91c1c] font-mono text-[11px]">Vulnerable</span>
                     </div>
                     <div className="flex items-center justify-between text-text-secondary">
                       <span>Exploit Test</span>
-                      <span className="text-[#f87171] font-mono text-[11px]">Triggered</span>
+                      <span className="text-[#b91c1c] font-mono text-[11px]">Triggered</span>
                     </div>
                   </div>
                   <div className="p-2.5 rounded-[8px] bg-[#ecfdf5]/50 border border-[#a7f3d0] text-[12px] space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-[#16a34a]">Candidate Fix</span>
-                      <span className="text-[#16a34a] font-mono text-[11px]">Safe</span>
+                      <span className="font-semibold text-[#15803d]">Candidate Fix</span>
+                      <span className="text-[#15803d] font-mono text-[11px]">Safe</span>
                     </div>
                     <div className="flex items-center justify-between text-text-secondary">
                       <span>Regression Suite</span>
-                      <span className="text-[#16a34a] font-mono text-[11px]">Passed (5/5)</span>
+                      <span className="text-[#15803d] font-mono text-[11px]">Passed (5/5)</span>
                     </div>
                   </div>
                 </div>
@@ -234,7 +234,7 @@ export function HeroSection() {
 
           {/* Mandatory Illustrative Disclaimer */}
           <div className="mt-4 text-center">
-            <span className="text-[11px] font-mono text-text-tertiary">
+            <span className="text-[11px] font-mono text-text-secondary">
               Illustrative, not a live scan.
             </span>
           </div>

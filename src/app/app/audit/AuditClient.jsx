@@ -605,3 +605,4 @@ export function AuditClient({ initialEvents = [], activeProject = null }) {
     </div>
   );
 }
+

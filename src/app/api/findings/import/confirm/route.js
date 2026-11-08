@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/auth";
 import { prisma } from "@/lib/db";
+import { requireProjectRole } from "@/lib/projects";
 import { isValidCommitSha } from "@/lib/importers/detect";
+import { rateLimiter, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,16 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Rate limiting: 20 import confirms per 10 minutes per user/IP
+    const ip = getClientIp(req);
+    const limitResult = rateLimiter.check(`import-confirm:${user.id}:${ip}`, 20, 600000);
+    if (!limitResult.success) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded for report confirmation. Please wait before retrying." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(limitResult.resetMs / 1000)) } }
+      );
+    }
+
     const body = await req.json();
     const { projectId, commitSha, findings, toolName = "Imported" } = body || {};
 
@@ -35,11 +47,15 @@ export async function POST(req) {
       return NextResponse.json({ error: "No findings provided to import." }, { status: 400 });
     }
 
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-    });
-    if (!project) {
-      return NextResponse.json({ error: "Selected project was not found." }, { status: 404 });
+    // Verify project exists and user has OWNER or MEMBER role
+    let project;
+    try {
+      project = await requireProjectRole(projectId, user.id, ["OWNER", "MEMBER"]);
+    } catch {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have permission to import findings to this project." },
+        { status: 403 }
+      );
     }
 
     let createdCount = 0;

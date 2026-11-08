@@ -1,3 +1,5 @@
+import { safeFetch } from "../ssrf.js";
+
 /**
  * Anthropic Messages API client implemented using native fetch.
  * Enforces a 30-second timeout, one automatic retry on network/5xx errors, and graceful error messages.
@@ -15,7 +17,7 @@ async function sendRequest({ systemPrompt, userMessage, apiKey, model }) {
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const res = await fetch(ANTHROPIC_API_URL, {
+    const res = await safeFetch(ANTHROPIC_API_URL, {
       method: "POST",
       headers: {
         "x-api-key": apiKey,

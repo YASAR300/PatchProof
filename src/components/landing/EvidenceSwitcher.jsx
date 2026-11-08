@@ -13,7 +13,7 @@ export function EvidenceSwitcher() {
     {
       id: "reproduced",
       status: "REPRODUCED",
-      badgeColor: "text-[#f87171] bg-[#fef2f2] border-[#fecaca]",
+      badgeColor: "text-[#b91c1c] bg-[#fef2f2] border-[#fecaca]",
       icon: ShieldAlert,
       title: "Exploit Active in Baseline",
       description: "Tautology payload returned all table rows. Vulnerability confirmed via standard library reproducer.",
@@ -21,7 +21,7 @@ export function EvidenceSwitcher() {
     {
       id: "fix-verified",
       status: "FIX_VERIFIED",
-      badgeColor: "text-[#16a34a] bg-[#ecfdf5] border-[#a7f3d0]",
+      badgeColor: "text-[#15803d] bg-[#ecfdf5] border-[#a7f3d0]",
       icon: CheckCircle2,
       title: "Fix Verified for Tested Cases",
       description: "Parameterized query neutralized the injection. All 5 regression tests passed with zero errors.",
@@ -29,7 +29,7 @@ export function EvidenceSwitcher() {
     {
       id: "patch-not-verified",
       status: "PATCH_NOT_VERIFIED",
-      badgeColor: "text-[#ea580c] bg-[#fff7ed] border-[#fed7aa]",
+      badgeColor: "text-[#c2410c] bg-[#fff7ed] border-[#fed7aa]",
       icon: XCircle,
       title: "Incomplete Fix Bypass Detected",
       description: "Uppercase filter bypassed with lowercase 'or'. Exploit continues to trigger in test harness.",
@@ -101,7 +101,7 @@ export function EvidenceSwitcher() {
                     key={block.id}
                     tabIndex={0}
                     role="button"
-                    aria-selected={isSelected}
+                    aria-pressed={isSelected}
                     onClick={() => setActiveIndex(idx)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {

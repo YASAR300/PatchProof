@@ -4,6 +4,8 @@
  * rate limit handling, and Git Trees manifest detection.
  */
 
+import { safeFetch } from "./ssrf.js";
+
 // In-memory cache: key -> { data, expiresAt }
 const cache = new Map();
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds
@@ -101,7 +103,7 @@ async function fetchGitHubApi(endpoint) {
 
   let response;
   try {
-    response = await fetch(url, {
+    response = await safeFetch(url, {
       headers,
       next: { revalidate: 60 },
     });

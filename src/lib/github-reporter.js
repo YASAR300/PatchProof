@@ -4,6 +4,8 @@
  * Automatically retries once on network/API failure and logs results.
  */
 
+import { safeFetch } from "./ssrf.js";
+
 const GITHUB_API_URL = "https://api.github.com";
 const STATUS_CONTEXT = "patchproof/verification";
 const COMMENT_MARKER = "<!-- patchproof-pr-comment -->";
@@ -15,7 +17,7 @@ async function fetchWithRetry(url, options, maxRetries = 1) {
   let lastError;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const res = await fetch(url, options);
+      const res = await safeFetch(url, options);
       if (!res.ok) {
         const errorText = await res.text().catch(() => "");
         throw new Error(`GitHub API error HTTP ${res.status}: ${errorText}`);

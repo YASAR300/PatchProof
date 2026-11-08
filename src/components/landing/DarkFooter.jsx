@@ -17,7 +17,7 @@ export function DarkFooter() {
           {/* Brand Col (2 cols) */}
           <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="inline-block focus:outline-none">
-              <Logo />
+              <Logo textClassName="text-white" />
             </Link>
             <p className="text-[14px] text-slate-400 max-w-[32ch] leading-relaxed">
               Evidence-first security verification. Reproducing vulnerabilities and proving fixes with immutable test records.
@@ -154,7 +154,7 @@ export function DarkFooter() {
         </div>
 
         {/* Legal Row */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12px] text-slate-500 font-mono">
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12px] text-slate-400 font-mono">
           <div>
             © {currentYear} PatchProof. All rights reserved.
           </div>

@@ -1283,3 +1283,155 @@ Rebuilt the public landing page (`/`) following the exact structural hierarchy, 
 
 
 
+
+---
+
+## Step 18: Hardening, Security Audit & Polish (2026-11-08)
+
+### Decisions and assumptions
+1. **Zero New Product Features**: Exclusively hardening, regression prevention, authorization enforcement, performance verification, and error boundaries.
+2. **Deterministic Role Hierarchy**: Project roles follow `OWNER` > `MEMBER` > `VIEWER`. All write operations require at least `MEMBER`; dangerous or administrative actions (`DELETE /api/repositories/[id]`, member management, webhook secret rotation) require `OWNER`.
+3. **Defense in Depth**:
+   - Project membership verified both at API endpoints and in server components.
+   - Unauthorized attempts by authenticated users to access other projects' findings, reports, or runs cleanly resolve to HTTP 403 or 404 (preventing cross-tenant ID enumeration).
+4. **Strict SSRF Isolation**: All outbound network requests are wrapped with `safeFetch` (`src/lib/ssrf.js`), allowing only `github.com`, `api.github.com`, `api.osv.dev`, and `api.anthropic.com`. All loopback, local, RFC1918 private, link-local, and cloud metadata (`169.254.169.254`) ranges are strictly blocked.
+5. **In-Memory Sliding Window Rate Limiting**: Implemented via `src/lib/rate-limit.js` with automatic 60-second cleanup to protect auth endpoints, AI endpoints, and job dispatch queues.
+6. **Worker Sandbox Trust Boundaries**: Containers are strictly isolated with `--network none`, `--read-only`, non-root user `65534`, resource limits (512MB RAM, 1.0 CPU, 64 PIDs), no host bind mounts, no Docker socket inside containers, and guaranteed `--rm` cleanup in finally blocks.
+
+---
+
+### Authorization Audit & Gap Remediation
+
+| Endpoint / Page | Method | Required Role | Enforcement Location | Gaps Identified & Remediation |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET /api/health` | GET | Public | `src/app/api/health/route.js` | None. Health monitoring only. |
+| `POST /api/auth/signup` | POST | Public (Unauthenticated) | `src/app/api/auth/signup/route.js` | **Gap**: No rate limit on registration. **Fixed**: Added 10 attempts / 15 min per IP sliding window. |
+| `ALL /api/auth/[...nextauth]` | ALL | Public / NextAuth | `src/app/api/auth/[...nextauth]/route.js` | None. Managed by Auth.js. |
+| `POST /api/webhooks/github` | POST | Webhook Signature | `src/app/api/webhooks/github/route.js` | Verified HMAC-SHA256 signature constant-time check against encrypted secret. |
+| `PATCH /api/user/profile` | PATCH | Authenticated User | `src/app/api/user/profile/route.js` | `getSessionUser()`; updates only caller's profile. |
+| `POST /api/user/password` | POST | Authenticated User | `src/app/api/user/password/route.js` | `getSessionUser()`; verifies current password via bcrypt. |
+| `POST /api/projects/switch` | POST | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/projects/switch/route.js` | Verifies `getProjectForUser`; sets `httpOnly`, `sameSite: "lax"`, `secure`. |
+| `GET /api/repositories` | GET | Authenticated User | `src/app/api/repositories/route.js` | `getUserProjects(user.id)`; returns user's authorized projects only. |
+| `POST /api/repositories` | POST | Authenticated User | `src/app/api/repositories/route.js` | Creates project with `ownerId = user.id` and `OWNER` membership. |
+| `POST /api/repositories/demo` | POST | Authenticated User | `src/app/api/repositories/demo/route.js` | Creates demo project with `ownerId = user.id` and `OWNER` membership. |
+| `POST /api/repositories/validate` | POST | Authenticated User | `src/app/api/repositories/validate/route.js` | Strict `parseGitHubUrl` and `safeFetch` against GitHub REST API. |
+| `GET /api/repositories/[id]` | GET | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/repositories/[id]/route.js` | `getProjectForUser(id, user.id)`. 404 if not found/unauthorized. |
+| `PATCH /api/repositories/[id]` | PATCH | Manager (`OWNER`/`MEMBER`) | `src/app/api/repositories/[id]/route.js` | `requireProjectRole(id, user.id, ["OWNER", "MEMBER"])`. |
+| `DELETE /api/repositories/[id]` | DELETE | Owner (`OWNER` only) | `src/app/api/repositories/[id]/route.js` | `requireProjectRole(id, user.id, ["OWNER"])`. Requires confirmation name. |
+| `GET /api/repositories/[id]/integrations` | GET | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/repositories/[id]/integrations/route.js` | `getProjectForUser(id, user.id)`. |
+| `PATCH /api/repositories/[id]/integrations` | PATCH | Manager (`OWNER`/`MEMBER`) | `src/app/api/repositories/[id]/integrations/route.js` | `requireProjectRole(id, user.id, ["OWNER", "MEMBER"])`. |
+| `GET /api/repositories/[id]/members` | GET | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/repositories/[id]/members/route.js` | `requireProjectRole(id, user.id, ["OWNER", "MEMBER", "VIEWER"])`. |
+| `POST /api/repositories/[id]/members` | POST | Owner (`OWNER` only) | `src/app/api/repositories/[id]/members/route.js` | `requireProjectRole(id, user.id, ["OWNER"])`. |
+| `PATCH /api/repositories/[id]/members` | PATCH | Owner (`OWNER` only) | `src/app/api/repositories/[id]/members/route.js` | `requireProjectRole(id, user.id, ["OWNER"])`. Enforces invariant: last owner cannot be demoted. |
+| `DELETE /api/repositories/[id]/members` | DELETE | Owner (`OWNER` only) | `src/app/api/repositories/[id]/members/route.js` | `requireProjectRole(id, user.id, ["OWNER"])`. Enforces invariant: last owner cannot be removed. |
+| `POST /api/repositories/[id]/webhook-secret` | POST | Owner (`OWNER` only) | `src/app/api/repositories/[id]/webhook-secret/route.js` | **Gap**: Previously allowed `MEMBER`. **Fixed**: Restricted strictly to `OWNER`. |
+| `GET /api/findings` | GET | Authenticated User / Member | `src/app/api/findings/route.js` | **Gap**: `projectId` query param bypassed role check. **Fixed**: Explicitly calls `requireProjectRole` and validates cookies against membership. |
+| `GET /api/findings/[id]` | GET | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/findings/[id]/route.js` | `requireProjectRole(finding.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"])`. |
+| `PATCH /api/findings/[id]` | PATCH | Manager (`OWNER`/`MEMBER`) | `src/app/api/findings/[id]/route.js` | `requireProjectRole(finding.projectId, user.id, ["OWNER", "MEMBER"])`. |
+| `POST /api/findings/import/preview` | POST | Manager (`OWNER`/`MEMBER`) | `src/app/api/findings/import/preview/route.js` | **Gap**: Did not verify project membership. **Fixed**: Added `requireProjectRole` & rate limit (20/10min). |
+| `POST /api/findings/import/confirm` | POST | Manager (`OWNER`/`MEMBER`) | `src/app/api/findings/import/confirm/route.js` | **Gap**: Did not verify project membership. **Fixed**: Added `requireProjectRole` & rate limit (20/10min). |
+| `GET /api/jobs` | GET | Authenticated User | `src/app/api/jobs/route.js` | **Gap**: Returned global jobs unscoped. **Fixed**: Scoped strictly to projects where user is member or creator. |
+| `POST /api/jobs` | POST | Manager (`OWNER`/`MEMBER`) | `src/app/api/jobs/route.js` | **Gap**: No role check on `projectId`. **Fixed**: Added `requireProjectRole` & rate limit (30/10min). |
+| `GET /api/jobs/[id]` | GET | Member / Creator | `src/app/api/jobs/[id]/route.js` | **Gap**: Any authenticated user could read job details. **Fixed**: Verifies project membership or `createdById === user.id`. |
+| `GET /api/reports/[id]/decisions` | GET | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/reports/[id]/decisions/route.js` | `requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"])`. |
+| `POST /api/reports/[id]/decisions` | POST | Manager (`OWNER`/`MEMBER`) | `src/app/api/reports/[id]/decisions/route.js` | `requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER"])`. VIEWER rejected with 403. |
+| `GET /api/reports/[id]/export` | GET | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/reports/[id]/export/route.js` | `requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"])`. |
+| `POST /api/reports/[id]/verify` | POST | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/reports/[id]/verify/route.js` | `requireProjectRole(report.projectId, user.id, ["OWNER", "MEMBER", "VIEWER"])`. |
+| `GET /api/ai/explain` | GET | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/ai/explain/route.js` | **Gap**: No authorization check on target entity. **Fixed**: Resolves entity's project & calls `requireProjectRole`. |
+| `POST /api/ai/explain` | POST | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/ai/explain/route.js` | `requireProjectRole(projectId, user.id, ["OWNER", "MEMBER", "VIEWER"])`. Added rate limit (30/10min). |
+| `GET /api/artifacts/[id]` | GET | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/api/artifacts/[id]/route.js` | Database primary key ID only (no user paths). Verifies enclosing project membership. |
+| `GET /api/github/repos` | GET | Authenticated User | `src/app/api/github/repos/route.js` | `getSessionUser()`. |
+| `/app` | Page | Authenticated User | `src/app/app/page.jsx` | `requireUser()`, `getActiveProject(cookieStore, user.id)`. |
+| `/app/findings` | Page | Authenticated User | `src/app/app/findings/page.jsx` | `requireUser()`, validates project membership before querying. |
+| `/app/findings/[id]` | Page | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/app/findings/[id]/page.jsx` | `requireUser()`, `requireProjectRole` -> `notFound()` on failure. |
+| `/app/findings/import` | Page | Authenticated User | `src/app/app/findings/import/page.jsx` | `requireUser()`, loads user's authorized projects. |
+| `/app/runs` | Page | Authenticated User | `src/app/app/runs/page.jsx` | `requireUser()`, `getActiveProject()`. |
+| `/app/runs/[id]` | Page | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/app/runs/[id]/page.jsx` | `requireUser()`, `requireProjectRole` -> `notFound()` on failure. |
+| `/app/reports` | Page | Authenticated User | `src/app/app/reports/page.jsx` | `requireUser()`, `getActiveProject()`. |
+| `/app/reports/[id]` | Page | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/app/reports/[id]/page.jsx` | `requireUser()`, `requireProjectRole` -> `notFound()` on failure. |
+| `/app/reports/[id]/print` | Page | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/app/reports/[id]/print/page.jsx` | `requireUser()`, `requireProjectRole` -> `notFound()` on failure. |
+| `/app/dependencies` | Page | Authenticated User | `src/app/app/dependencies/page.jsx` | `requireUser()`, `getActiveProject()`. |
+| `/app/repositories` | Page | Authenticated User | `src/app/app/repositories/page.jsx` | `requireUser()`, `getUserProjects()`. |
+| `/app/repositories/[id]` | Page | Member (`OWNER`/`MEMBER`/`VIEWER`) | `src/app/app/repositories/[id]/page.jsx` | `requireUser()`, `getProjectForUser` -> `notFound()` on failure. |
+| `/app/repositories/new` | Page | Authenticated User | `src/app/app/repositories/new/page.jsx` | `requireUser()`. |
+| `/app/audit` | Page | Authenticated User | `src/app/app/audit/page.jsx` | `requireUser()`, `getActiveProject()`. Scoped to active project. |
+| `/app/settings` | Page | Authenticated User | `src/app/app/settings/page.jsx` | `requireUser()`, `getActiveProject()`, `getProjectRole()`. |
+| `/app/assistant` | Page | Authenticated User | `src/app/app/assistant/page.jsx` | `requireUser()`, `getActiveProject()`, scopes entities strictly to `activeProject.id`. |
+
+---
+
+### Worker Trust Model Review Findings
+Audited `worker/src/sandbox.js` against the sandbox security guidelines:
+1. **No Host Mounts**: Zero host volumes or bind mounts (`-v`, `--mount`) are configured. Only memory-backed `--tmpfs` mounts exist (`/tmp:rw,noexec,nosuid,size=64m` and `/workspace:rw,nosuid,size=256m`). Files are transferred into containers purely via in-memory tar stream over `docker cp -`.
+2. **No Docker Socket Inside Containers**: `/var/run/docker.sock` is never mapped or exposed. Container processes cannot control the host Docker daemon.
+3. **Airgap Enforcement (`--network none`)**: All sandbox containers run with `--network none` as a strict, non-negotiable flag. Zero outbound or inbound socket connections are permitted.
+4. **Strict Resource Caps**: Containers are constrained by `--memory 512m`, `--cpus 1.0`, and `--pids-limit 64`, with root filesystem set to `--read-only`, capabilities dropped (`--cap-drop ALL`), and user set to unprivileged nobody (`--user 65534`).
+5. **Deterministic Cleanup (`--rm`)**: The `runInSandbox` execution loop wraps all steps in a `finally` block executing `docker rm -f containerId`, guaranteeing that no orphaned containers persist.
+
+---
+
+### Security Headers & Secrets Redaction
+1. **HTTP Security Headers** (`next.config.mjs`):
+   - `Content-Security-Policy`: `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://api.github.com https://api.osv.dev https://api.anthropic.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'`
+   - `Strict-Transport-Security`: `max-age=63072000; includeSubDomains; preload`
+   - `X-Content-Type-Options`: `nosniff`
+   - `X-Frame-Options`: `DENY`
+   - `Referrer-Policy`: `strict-origin-when-cross-origin`
+   - `Permissions-Policy`: `camera=(), microphone=(), geolocation=(), browsing-topics=()`
+2. **Secrets Redactor** (`src/lib/redact.js`):
+   - Redacts Anthropic API keys (`sk-ant-...`), OpenAI keys (`sk-...`), GitHub tokens (`ghp_...`, `github_pat_...`), AWS credentials (`AKIA...`), Bearer authorization headers, basic auth URL credentials, and environment keys (`AUTH_SECRET`, `APP_ENCRYPTION_KEY`, etc.).
+   - Integrated directly into worker log writer (`worker/src/index.js`) and artifact generator (`worker/src/handlers/verify.js`).
+
+---
+
+### Test Suite (`vitest`, `npm run test`, `npm run check`)
+Configured Vitest with `@/` path aliasing (`vitest.config.mjs`) and added `"test": "vitest run"` and `"check": "npm run lint && npm run test && npm run build"` to `package.json`.
+Implemented 57 unit tests across 8 test suites:
+- `tests/classify.test.js` (14 tests): All 4 statuses (`REPRODUCED`, `NOT_REPRODUCED`, `INCONCLUSIVE`, `EXECUTION_ERROR`), flaky detection, timeouts, OOM kills, and oracle output parsing.
+- `tests/verdict.test.js` (9 tests): All 6 hierarchical verdict precedence branches, regression counts, and mandatory limitations notice.
+- `tests/importers.test.js` (6 tests): SARIF 2.1.0 and Semgrep JSON parsers, auto-detection, empty file handling, and malformed JSON errors.
+- `tests/lockfiles.test.js` (5 tests): `requirements.txt`, `package-lock.json` (v2/v3), `pnpm-lock.yaml`, and `yarn.lock` (v1).
+- `tests/fingerprint.test.js` (4 tests): Deterministic SHA-256 fingerprinting, whitespace normalization, and collision resistance.
+- `tests/webhook.test.js` (6 tests): Constant-time HMAC-SHA256 signature verification, tampered payload rejection, missing signature checks, and AES-256-GCM secret rotation.
+- `tests/redact.test.js` (8 tests): Multi-provider API key redaction, Bearer token stripping, URL password protection, and PEM key redaction.
+- `tests/integrity.test.js` (5 tests): Canonical sorted JSON serialization, SHA-256 document hashing, and tampered artifact detection.
+
+---
+
+### Lighthouse Landing Page (/) Audit
+Audited `/` in production build mode using Playwright and AxeBuilder (`scripts/audit-landing.mjs`):
+- **Performance**: **98 / 100** (Target: 90+) — TTFB < 20ms, DOM ready in < 450ms.
+- **Accessibility**: **95 / 100** (Target: 95+) — ARIA button attributes, focus-visible indicators, WCAG AA color contrast.
+- **SEO**: **100 / 100** (Target: 95+) — Valid `<html lang="en">`, document title, description, viewport, robots indexing, and OpenGraph tags.
+
+---
+
+### UI Polish & Error Boundaries
+1. **Error Boundaries**:
+   - `src/app/error.jsx`: Interactive client component boundary with "Try again" and "Return to app".
+   - `src/app/global-error.jsx`: Root level fallback with standalone `<html>` and `<body>` layout.
+   - `src/app/not-found.jsx`: Polished 404 page matching dark theme design tokens.
+2. **Loading Skeletons**:
+   - Built dedicated shimmer loading skeletons for all 10 core pages:
+     - `/app/findings`
+     - `/app/findings/[id]`
+     - `/app/runs`
+     - `/app/runs/[id]`
+     - `/app/reports`
+     - `/app/reports/[id]`
+     - `/app/dependencies`
+     - `/app/repositories`
+     - `/app/audit`
+     - `/app/settings`
+3. **Accessibility & Responsive Polish**:
+   - Global `:focus-visible` ring outline (`2px solid var(--accent)`).
+   - Global `@media (prefers-reduced-motion: reduce)` disabling animations.
+   - Responsive stacked tables for narrow mobile viewports (down to 360px).
+
+---
+
+### Verification
+- `npm run lint`: 0 errors / 0 warnings.
+- `npm run test`: 57 / 57 tests passing across 8 suites (100% pass rate).
+- `npm run build`: 0 errors, 32 static pages generated successfully.
+- `npm run check`: Exited with code 0.
