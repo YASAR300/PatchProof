@@ -11,6 +11,9 @@ import {
   RotateCcw,
   Shield,
   Layers,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Card } from "@/components/ui/Card";

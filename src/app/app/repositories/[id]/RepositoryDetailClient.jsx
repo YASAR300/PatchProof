@@ -25,6 +25,9 @@ import {
   Bug,
   ArrowRight,
   Package,
+  RefreshCw,
+  GitPullRequest,
+  AlertCircle,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
